@@ -1,0 +1,126 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
+import { roomsAPI } from '@/lib/api';
+
+export default function RoomDetailPage() {
+  const params = useParams();
+  const [room, setRoom] = useState<any>(null);
+
+  useEffect(() => {
+    if (params.id) {
+      fetchRoom();
+    }
+  }, [params.id]);
+
+  const fetchRoom = async () => {
+    try {
+      const response = await roomsAPI.getOne(Number(params.id));
+      setRoom(response.data);
+    } catch (error) {
+      console.error('Error fetching room:', error);
+    }
+  };
+
+  if (!room) {
+    return (
+      <div className="min-h-screen">
+        <Navbar />
+        <div className="pt-24 pb-16 text-center">
+          <p>Loading...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen">
+      <Navbar />
+      
+      <main className="pt-24 pb-16">
+        <div className="container mx-auto px-4">
+          <div className="max-w-6xl mx-auto">
+            {/* Image Gallery */}
+            <div className="grid md:grid-cols-2 gap-4 mb-8">
+              <div className="h-96 bg-gradient-to-r from-primary to-blue-600 rounded-lg"></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="h-46 bg-gradient-to-r from-blue-500 to-primary rounded-lg"></div>
+                <div className="h-46 bg-gradient-to-r from-primary to-teal-600 rounded-lg"></div>
+                <div className="h-46 bg-gradient-to-r from-teal-600 to-primary rounded-lg"></div>
+                <div className="h-46 bg-gradient-to-r from-primary to-blue-500 rounded-lg"></div>
+              </div>
+            </div>
+
+            {/* Room Details */}
+            <div className="bg-white rounded-lg shadow-lg p-8">
+              <div className="mb-6">
+                <h1 className="text-4xl font-heading font-bold mb-2">{room.name}</h1>
+                <p className="text-xl text-gray-600 capitalize">{room.type} Room</p>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-6 mb-8">
+                <div className="bg-secondary p-4 rounded-lg text-center">
+                  <p className="text-3xl font-bold text-primary">${room.pricePerNight}</p>
+                  <p className="text-gray-600">per night</p>
+                </div>
+                <div className="bg-secondary p-4 rounded-lg text-center">
+                  <p className="text-3xl font-bold text-primary">{room.maxGuests}</p>
+                  <p className="text-gray-600">max guests</p>
+                </div>
+                <div className="bg-secondary p-4 rounded-lg text-center">
+                  <p className="text-3xl font-bold text-primary">{room.numberOfBeds}</p>
+                  <p className="text-gray-600">beds</p>
+                </div>
+              </div>
+
+              <div className="mb-8">
+                <h2 className="text-2xl font-heading font-bold mb-4">Description</h2>
+                <p className="text-gray-700 leading-relaxed">{room.description}</p>
+              </div>
+
+              <div className="mb-8">
+                <h2 className="text-2xl font-heading font-bold mb-4">Amenities</h2>
+                <div className="grid md:grid-cols-3 gap-3">
+                  {room.amenities?.map((amenity: string, idx: number) => (
+                    <div key={idx} className="flex items-center space-x-2">
+                      <span className="text-primary">✓</span>
+                      <span>{amenity}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t pt-6">
+                <h2 className="text-2xl font-heading font-bold mb-4">Book This Room</h2>
+                <p className="text-gray-700 mb-6">
+                  To book this room, please contact our reservation hotline. Our friendly staff will assist you with your booking.
+                </p>
+                <div className="flex gap-4">
+                  <a 
+                    href="tel:+880-XXX-XXXXXX"
+                    className="bg-primary text-white px-8 py-3 rounded-lg font-bold hover:bg-teal-700 transition"
+                  >
+                    📞 Call to Book
+                  </a>
+                  <a 
+                    href="https://wa.me/880XXXXXXXXX"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-green-500 text-white px-8 py-3 rounded-lg font-bold hover:bg-green-600 transition"
+                  >
+                    💬 WhatsApp
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  );
+}
