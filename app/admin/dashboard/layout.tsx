@@ -35,31 +35,67 @@ export default function AdminLayout({
       name: 'Dashboard',
       icon: '📊',
       path: '/admin/dashboard',
+      permission: 'dashboard.view',
     },
     {
       name: 'Rooms',
-      icon: '🛏️',
+      icon: '🏠',
       path: '/admin/dashboard/rooms',
+      permission: 'rooms.manage',
     },
     {
-      name: 'Bookings',
-      icon: '📅',
+      name: 'Room Bookings',
+      icon: '📝',
       path: '/admin/dashboard/bookings',
+      permission: 'bookings.manage',
     },
     {
-      name: 'Convention Hall',
+      name: 'Convention Halls',
       icon: '🏛️',
       path: '/admin/dashboard/convention',
+      permission: 'convention.manage',
+    },
+    {
+      name: 'Convention Bookings',
+      icon: '🎫',
+      path: '/admin/dashboard/convention-bookings',
+      permission: 'convention-bookings.manage',
+    },
+    {
+      name: 'New Convention Booking',
+      icon: '➕',
+      path: '/admin/dashboard/premium-convention',
+      permission: 'convention-bookings.manage',
+    },
+    {
+      name: 'Food Packages',
+      icon: '🍽️',
+      path: '/admin/dashboard/food-packages',
+      permission: 'food-packages.manage',
+    },
+    {
+      name: 'Add-on Services',
+      icon: '➕',
+      path: '/admin/dashboard/addon-services',
+      permission: 'addon-services.manage',
     },
     {
       name: 'Hero Slides',
-      icon: '🎨',
+      icon: '🖼️',
       path: '/admin/dashboard/hero-slides',
+      permission: 'hero-slides.manage',
     },
     {
-      name: 'Resort Info',
+      name: 'Resort Settings',
       icon: '⚙️',
       path: '/admin/dashboard/settings',
+      permission: 'resort-settings.manage',
+    },
+    {
+      name: 'Users',
+      icon: '👥',
+      path: '/admin/dashboard/users',
+      permission: 'users.manage',
     },
   ];
 
@@ -77,7 +113,7 @@ export default function AdminLayout({
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Top Navigation Bar */}
-      <nav className="bg-gradient-to-r from-primary via-teal-600 to-teal-700 text-white shadow-xl sticky top-0 z-50">
+      <nav className="bg-gradient-to-r from-primary-600 via-primary-500 to-primary-700 text-white shadow-xl sticky top-0 z-50">
         <div className="px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <button
@@ -89,8 +125,8 @@ export default function AdminLayout({
               </svg>
             </button>
             <div>
-              <h1 className="text-2xl font-bold">🏨 Tufan Resort CMS</h1>
-              <p className="text-xs text-teal-100">Content Management System</p>
+              <h1 className="text-2xl font-bold">🏞️ Tufan Resort CMS</h1>
+              <p className="text-xs text-green-100">Content Management System</p>
             </div>
           </div>
           
@@ -112,13 +148,13 @@ export default function AdminLayout({
               </div>
               <div>
                 <p className="font-semibold">{user.name}</p>
-                <p className="text-xs text-teal-100 capitalize">{user.role}</p>
+                <p className="text-xs text-green-100 capitalize">{user.role}</p>
               </div>
             </div>
             
             <button
               onClick={handleLogout}
-              className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg font-semibold shadow-lg transition-all transform hover:scale-105 flex items-center gap-2"
+              className="bg-secondary-600 hover:bg-secondary-700 px-4 py-2 rounded-lg font-semibold shadow-lg transition-all transform hover:scale-105 flex items-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -138,13 +174,22 @@ export default function AdminLayout({
           style={{ marginTop: '0px' }}
         >
           <div className="p-4 h-full overflow-y-auto pt-6">
-            <div className="mb-6 p-4 bg-gradient-to-r from-primary/10 to-teal-50 rounded-xl border-2 border-primary/20">
+            <div className="mb-6 p-4 bg-gradient-to-r from-primary/10 to-green-50 rounded-xl border-2 border-primary/20">
               <p className="text-xs font-bold text-gray-600 mb-1">ADMIN PANEL</p>
               <p className="text-lg font-bold text-primary">Full Access ✓</p>
             </div>
             
             <nav className="space-y-2">
-              {menuItems.map((item) => {
+              {menuItems
+                .filter((item) => {
+                  if (!user) return false;
+                  if (user.role === 'owner') return true;
+                  if (!item.permission) return true;
+                  // allow legacy users without permissions defined
+                  if (!user.permissions || user.permissions.length === 0) return true;
+                  return user.permissions.includes(item.permission);
+                })
+                .map((item) => {
                 const isActive = pathname === item.path;
                 return (
                   <Link
@@ -152,7 +197,7 @@ export default function AdminLayout({
                     href={item.path}
                     className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${
                       isActive
-                        ? 'bg-gradient-to-r from-primary to-teal-600 text-white shadow-lg transform scale-105'
+                        ? 'bg-gradient-to-r from-primary to-primary-600 text-white shadow-lg transform scale-105'
                         : 'text-gray-700 hover:bg-gradient-to-r hover:from-gray-100 hover:to-gray-50 hover:text-primary'
                     }`}
                   >
@@ -169,11 +214,11 @@ export default function AdminLayout({
             </nav>
 
             <div className="mt-8 p-4 bg-gradient-to-br from-accent/10 to-yellow-50 rounded-xl border-2 border-accent/30">
-              <p className="text-xs font-bold text-accent mb-2 flex items-center gap-1">
+              <p className="text-xs font-bold text-accent-700 mb-2 flex items-center gap-1">
                 💡 QUICK TIP
               </p>
               <p className="text-xs text-gray-700 leading-relaxed">
-                Keep your content fresh! Update hero slides and room images regularly for best results.
+                আপনার কন্টেন্ট সতেজ রাখুন! সেরা ফলাফলের জন্য নিয়মিত হিরো স্লাইড এবং রুমের ছবি আপডেট করুন।
               </p>
             </div>
           </div>

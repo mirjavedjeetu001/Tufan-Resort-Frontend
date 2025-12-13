@@ -65,24 +65,24 @@ export default function Home() {
                   <>
                     <div className="card-premium p-8 text-center group cursor-pointer hover-lift">
                       <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white text-3xl">
-                        🏊
+                        �
                       </div>
-                      <h3 className="font-heading font-bold text-xl mb-2 text-gray-800">Swimming Pool</h3>
-                      <p className="text-gray-600">Relax in our pristine pool</p>
+                      <h3 className="font-heading font-bold text-xl mb-2 text-gray-800">Lake View</h3>
+                      <p className="text-gray-600">Stunning natural beauty</p>
                     </div>
                     <div className="card-premium p-8 text-center group cursor-pointer hover-lift">
                       <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-accent-500 to-accent-600 flex items-center justify-center text-white text-3xl">
-                        💆
+                        🍛
                       </div>
-                      <h3 className="font-heading font-bold text-xl mb-2 text-gray-800">Spa & Wellness</h3>
-                      <p className="text-gray-600">Rejuvenate your senses</p>
+                      <h3 className="font-heading font-bold text-xl mb-2 text-gray-800">Bengali Cuisine</h3>
+                      <p className="text-gray-600">Authentic local flavors</p>
                     </div>
                     <div className="card-premium p-8 text-center group cursor-pointer hover-lift">
                       <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-primary-600 to-primary-700 flex items-center justify-center text-white text-3xl">
-                        🍽️
+                        🌿
                       </div>
-                      <h3 className="font-heading font-bold text-xl mb-2 text-gray-800">Fine Dining</h3>
-                      <p className="text-gray-600">Exquisite culinary experience</p>
+                      <h3 className="font-heading font-bold text-xl mb-2 text-gray-800">Nature Resort</h3>
+                      <p className="text-gray-600">Peaceful green surroundings</p>
                     </div>
                   </>
                 )}
@@ -100,8 +100,12 @@ export default function Home() {
               {featuredRooms.length > 0 ? featuredRooms.map((room: any) => (
                 <div key={room.id} className="card-premium overflow-hidden group">
                   <div className="h-64 bg-gradient-to-br from-primary-400 to-primary-600 relative overflow-hidden">
-                    {room.images?.[0] && (
-                      <img src={`${API_URL}/${room.images[0]}`} alt={room.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                    {room.images?.[0] ? (
+                      <img src={`${API_URL}${room.images[0]}`} alt={room.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-white text-xl font-semibold">No Image</span>
+                      </div>
                     )}
                     <div className="absolute top-4 right-4">
                       <span className="badge-success px-4 py-2 text-sm font-semibold">Available</span>
@@ -113,7 +117,7 @@ export default function Home() {
                     <p className="text-gray-600 mb-4 line-clamp-2">{room.description || 'Luxury accommodation with modern amenities'}</p>
                     <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
                       <div>
-                        <span className="text-3xl font-bold text-primary-600">${room.pricePerNight}</span>
+                        <span className="text-3xl font-bold text-primary-600">৳{Number(room.pricePerNight).toLocaleString()}</span>
                         <span className="text-gray-500">/night</span>
                       </div>
                       <div className="text-right">
@@ -174,11 +178,11 @@ export default function Home() {
         </section>
 
         {/* Contact CTA */}
-        <section className="py-16 bg-primary text-white">
+        <section className="py-16 bg-gradient-to-r from-primary-600 to-primary-700 text-white">
           <div className="container mx-auto px-4 text-center">
             <h2 className="text-4xl font-heading font-bold mb-4">Ready to Book?</h2>
-            <p className="text-xl mb-8">Contact our hotline for reservations and inquiries</p>
-            <a href={`tel:${resortInfo?.phone || '+880-XXX-XXXXXX'}`} className="bg-accent text-dark px-8 py-4 rounded-lg font-bold text-xl hover:bg-yellow-500 transition inline-block">
+            <p className="text-xl mb-8">📞 Contact our hotline for reservations and inquiries</p>
+            <a href={`tel:${resortInfo?.phone || '+880-XXX-XXXXXX'}`} className="bg-accent text-white px-8 py-4 rounded-lg font-bold text-xl hover:bg-accent-600 transition inline-block shadow-lg hover:shadow-glow">
               📞 {resortInfo?.phone || '+880-XXX-XXXXXX'}
             </a>
           </div>

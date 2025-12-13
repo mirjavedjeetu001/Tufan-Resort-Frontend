@@ -5,14 +5,16 @@ import { api } from '@/lib/api';
 
 interface Room {
   id: number;
+  roomNumber: string;
   name: string;
   type: 'Standard' | 'Deluxe' | 'Suite' | 'Family';
   pricePerNight: number;
-  capacity: number;
+  maxGuests: number;
+  numberOfBeds: number;
   description: string;
   amenities: string[];
   images: string[];
-  isAvailable: boolean;
+  status: 'available' | 'booked' | 'maintenance';
 }
 
 export default function RoomsManagement() {
@@ -21,13 +23,15 @@ export default function RoomsManagement() {
   const [showModal, setShowModal] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [formData, setFormData] = useState({
+    roomNumber: '',
     name: '',
     type: 'Standard' as Room['type'],
     pricePerNight: 0,
-    capacity: 1,
+    maxGuests: 1,
+    numberOfBeds: 1,
     description: '',
     amenities: '',
-    isAvailable: true,
+    status: 'available' as 'available' | 'booked' | 'maintenance',
   });
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreview, setImagePreview] = useState<string[]>([]);
@@ -60,13 +64,15 @@ export default function RoomsManagement() {
     e.preventDefault();
     
     const formDataToSend = new FormData();
+    formDataToSend.append('roomNumber', formData.roomNumber);
     formDataToSend.append('name', formData.name);
     formDataToSend.append('type', formData.type);
     formDataToSend.append('pricePerNight', formData.pricePerNight.toString());
-    formDataToSend.append('capacity', formData.capacity.toString());
+    formDataToSend.append('maxGuests', formData.maxGuests.toString());
+    formDataToSend.append('numberOfBeds', formData.numberOfBeds.toString());
     formDataToSend.append('description', formData.description);
     formDataToSend.append('amenities', formData.amenities);
-    formDataToSend.append('isAvailable', formData.isAvailable.toString());
+    formDataToSend.append('status', formData.status);
     
     imageFiles.forEach(file => {
       formDataToSend.append('images', file);
@@ -106,13 +112,15 @@ export default function RoomsManagement() {
     if (room) {
       setEditingRoom(room);
       setFormData({
+        roomNumber: room.roomNumber || '',
         name: room.name,
         type: room.type,
         pricePerNight: room.pricePerNight,
-        capacity: room.capacity,
+        maxGuests: room.maxGuests || 1,
+        numberOfBeds: room.numberOfBeds || 1,
         description: room.description,
         amenities: room.amenities.join(', '),
-        isAvailable: room.isAvailable,
+        status: room.status,
       });
       setImagePreview(room.images || []);
     }
@@ -123,13 +131,15 @@ export default function RoomsManagement() {
     setShowModal(false);
     setEditingRoom(null);
     setFormData({
+      roomNumber: '',
       name: '',
       type: 'Standard',
       pricePerNight: 0,
-      capacity: 1,
+      maxGuests: 1,
+      numberOfBeds: 1,
       description: '',
       amenities: '',
-      isAvailable: true,
+      status: 'available' as 'available' | 'booked' | 'maintenance',
     });
     setImageFiles([]);
     setImagePreview([]);
@@ -164,7 +174,7 @@ export default function RoomsManagement() {
             <div className="relative h-48">
               {room.images && room.images.length > 0 ? (
                 <img
-                  src={room.images[0]}
+                  src={`http://localhost:3001${room.images[0]}`}
                   alt={room.name}
                   className="w-full h-full object-cover"
                 />
@@ -175,19 +185,26 @@ export default function RoomsManagement() {
               )}
               <span
                 className={`absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-semibold ${
-                  room.isAvailable ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                  room.status === 'available' ? 'bg-green-500 text-white' : room.status === 'maintenance' ? 'bg-yellow-500 text-white' : 'bg-red-500 text-white'
                 }`}
               >
-                {room.isAvailable ? 'Available' : 'Unavailable'}
+                {room.status === 'available' ? 'Available' : room.status === 'maintenance' ? 'Maintenance' : 'Booked'}
               </span>
             </div>
             
             <div className="p-5">
               <div className="flex justify-between items-start mb-2">
-                <h3 className="text-xl font-bold text-gray-800">{room.name}</h3>
-                <span className="bg-primary/10 text-primary px-2 py-1 rounded text-sm font-medium">
-                  {room.type}
-                </span>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="bg-blue-500 text-white px-2 py-0.5 rounded text-xs font-bold">
+                      {room.roomNumber}
+                    </span>
+                    <span className="bg-primary/10 text-primary px-2 py-1 rounded text-sm font-medium">
+                      {room.type}
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-800">{room.name}</h3>
+                </div>
               </div>
               
               <p className="text-gray-600 text-sm mb-3 line-clamp-2">{room.description}</p>
@@ -197,7 +214,7 @@ export default function RoomsManagement() {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
-                  <span>{room.capacity} Guests</span>
+                  <span>{room.maxGuests} Guests · {room.numberOfBeds} Bed(s)</span>
                 </div>
                 <div className="text-accent font-bold text-lg">
                   ₹{room.pricePerNight}/night
@@ -276,6 +293,21 @@ export default function RoomsManagement() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Room Number *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.roomNumber}
+                    onChange={(e) => setFormData({ ...formData, roomNumber: e.target.value.toUpperCase() })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="e.g., R101"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Unique identifier (e.g., R101, R102)</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Room Name *
                   </label>
                   <input
@@ -324,16 +356,31 @@ export default function RoomsManagement() {
                 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Capacity (Guests) *
+                    Max Guests *
                   </label>
                   <input
                     type="number"
                     required
                     min="1"
-                    value={formData.capacity}
-                    onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) })}
+                    value={formData.maxGuests}
+                    onChange={(e) => setFormData({ ...formData, maxGuests: parseInt(e.target.value) || 1 })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="e.g., 2"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Number of Beds *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    value={formData.numberOfBeds}
+                    onChange={(e) => setFormData({ ...formData, numberOfBeds: parseInt(e.target.value) || 1 })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="e.g., 1"
                   />
                 </div>
               </div>
@@ -390,17 +437,20 @@ export default function RoomsManagement() {
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="isAvailable"
-                  checked={formData.isAvailable}
-                  onChange={(e) => setFormData({ ...formData, isAvailable: e.target.checked })}
-                  className="w-4 h-4 text-primary focus:ring-primary border-gray-300 rounded"
-                />
-                <label htmlFor="isAvailable" className="text-sm font-medium text-gray-700">
-                  Room is available for booking
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Room Status *
                 </label>
+                <select
+                  required
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value as 'available' | 'booked' | 'maintenance' })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                  <option value="available">Available</option>
+                  <option value="booked">Booked</option>
+                  <option value="maintenance">Maintenance</option>
+                </select>
               </div>
 
               <div className="flex gap-3 pt-4">

@@ -57,7 +57,7 @@ export default function ConventionManagement() {
     
     const formDataToSend = new FormData();
     formDataToSend.append('name', formData.name);
-    formDataToSend.append('capacity', formData.capacity.toString());
+    formDataToSend.append('maxCapacity', formData.maxCapacity.toString());
     formDataToSend.append('pricePerDay', formData.pricePerDay.toString());
     formDataToSend.append('description', formData.description);
     formDataToSend.append('amenities', formData.amenities);
@@ -102,7 +102,7 @@ export default function ConventionManagement() {
       setEditingHall(hall);
       setFormData({
         name: hall.name,
-        capacity: hall.capacity,
+        maxCapacity: hall.maxCapacity,
         pricePerDay: hall.pricePerDay,
         description: hall.description,
         amenities: hall.amenities.join(', '),
@@ -118,7 +118,7 @@ export default function ConventionManagement() {
     setEditingHall(null);
     setFormData({
       name: '',
-      capacity: 0,
+      maxCapacity: 0,
       pricePerDay: 0,
       description: '',
       amenities: '',
@@ -160,7 +160,7 @@ export default function ConventionManagement() {
             <div className="relative h-64">
               {hall.images && hall.images.length > 0 ? (
                 <img
-                  src={hall.images[0]}
+                  src={`http://localhost:3001${hall.images[0]}`}
                   alt={hall.name}
                   className="w-full h-full object-cover"
                 />
@@ -196,7 +196,7 @@ export default function ConventionManagement() {
                     </svg>
                     <span className="text-xs font-semibold text-blue-600">Capacity</span>
                   </div>
-                  <p className="text-2xl font-bold text-blue-700">{hall.capacity}</p>
+                  <p className="text-2xl font-bold text-blue-700">{hall.maxCapacity}</p>
                 </div>
                 
                 <div className="bg-accent/10 p-4 rounded-lg">
@@ -206,7 +206,7 @@ export default function ConventionManagement() {
                     </svg>
                     <span className="text-xs font-semibold text-accent">Price/Day</span>
                   </div>
-                  <p className="text-2xl font-bold text-accent">₹{hall.pricePerDay.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-accent">৳{Number(hall.pricePerDay || 0).toLocaleString()}</p>
                 </div>
               </div>
               
@@ -310,8 +310,8 @@ export default function ConventionManagement() {
                     type="number"
                     required
                     min="1"
-                    value={formData.capacity}
-                    onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) })}
+                    value={formData.maxCapacity}
+                    onChange={(e) => setFormData({ ...formData, maxCapacity: parseInt(e.target.value) })}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                     placeholder="e.g., 500"
                   />

@@ -54,12 +54,12 @@ export default function Footer() {
           </div>
           
           <div>
-            <h4 className="text-lg font-heading font-bold mb-4 text-accent-400">Services</h4>
+            <h4 className="text-lg font-heading font-bold mb-4 text-accent-400">Services / সেবাসমূহ</h4>
             <ul className="space-y-3 text-gray-400">
-              <li className="hover:text-accent-400 transition-colors cursor-pointer">🛏️ Luxury Rooms</li>
-              <li className="hover:text-accent-400 transition-colors cursor-pointer">🎭 Convention Hall</li>
-              <li className="hover:text-accent-400 transition-colors cursor-pointer">🍽️ Fine Dining</li>
-              <li className="hover:text-accent-400 transition-colors cursor-pointer">🏊 Swimming Pool</li>
+              <li className="hover:text-accent-400 transition-colors cursor-pointer">🏠 Luxury Rooms / বিলাসবহুল রুম</li>
+              <li className="hover:text-accent-400 transition-colors cursor-pointer">🏛️ Convention Hall / কনভেনশন হল</li>
+              <li className="hover:text-accent-400 transition-colors cursor-pointer">🍛 Bengali Cuisine / বাংলা খাবার</li>
+              <li className="hover:text-accent-400 transition-colors cursor-pointer">🌊 Lake View / লেক ভিউ</li>
             </ul>
           </div>
           
@@ -84,10 +84,10 @@ export default function Footer() {
         
         <div className="border-t border-gray-700 mt-10 pt-8 text-center">
           <p className="text-gray-400">
-            &copy; 2025 <span className="text-accent-400 font-semibold">Tufan Resort</span>. All rights reserved.
+            &copy; ২০২৫ <span className="text-accent-400 font-semibold">Tufan Resort</span>. সর্বস্বত্ব সংরক্ষিত / All rights reserved.
           </p>
           <p className="text-gray-500 text-sm mt-2">
-            Developed with ❤️ by <span className="text-primary-400 font-semibold">Mir Javed Jahanger</span>
+            Made in Bangladesh 🇧🇩 with ❤️
           </p>
         </div>
       </div>

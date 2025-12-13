@@ -45,12 +45,46 @@ export default function RoomDetailPage() {
           <div className="max-w-6xl mx-auto">
             {/* Image Gallery */}
             <div className="grid md:grid-cols-2 gap-4 mb-8">
-              <div className="h-96 bg-gradient-to-r from-primary to-blue-600 rounded-lg"></div>
+              <div className="h-96 rounded-lg overflow-hidden">
+                {room.images && room.images.length > 0 ? (
+                  <img
+                    src={`http://localhost:3001${room.images[0]}`}
+                    alt={room.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-r from-primary to-blue-600 flex items-center justify-center">
+                    <span className="text-white text-xl font-semibold">No Image</span>
+                  </div>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="h-46 bg-gradient-to-r from-blue-500 to-primary rounded-lg"></div>
-                <div className="h-46 bg-gradient-to-r from-primary to-teal-600 rounded-lg"></div>
-                <div className="h-46 bg-gradient-to-r from-teal-600 to-primary rounded-lg"></div>
-                <div className="h-46 bg-gradient-to-r from-primary to-blue-500 rounded-lg"></div>
+                {room.images && room.images.length > 1 ? (
+                  room.images.slice(1, 5).map((img: string, idx: number) => (
+                    <div key={idx} className="h-46 rounded-lg overflow-hidden">
+                      <img
+                        src={`http://localhost:3001${img}`}
+                        alt={`${room.name} - ${idx + 2}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <>
+                    <div className="h-46 bg-gradient-to-r from-blue-500 to-primary rounded-lg flex items-center justify-center">
+                      <span className="text-white font-semibold">No Image</span>
+                    </div>
+                    <div className="h-46 bg-gradient-to-r from-primary to-teal-600 rounded-lg flex items-center justify-center">
+                      <span className="text-white font-semibold">No Image</span>
+                    </div>
+                    <div className="h-46 bg-gradient-to-r from-teal-600 to-primary rounded-lg flex items-center justify-center">
+                      <span className="text-white font-semibold">No Image</span>
+                    </div>
+                    <div className="h-46 bg-gradient-to-r from-primary to-blue-500 rounded-lg flex items-center justify-center">
+                      <span className="text-white font-semibold">No Image</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -63,7 +97,7 @@ export default function RoomDetailPage() {
 
               <div className="grid md:grid-cols-3 gap-6 mb-8">
                 <div className="bg-secondary p-4 rounded-lg text-center">
-                  <p className="text-3xl font-bold text-primary">${room.pricePerNight}</p>
+                  <p className="text-3xl font-bold text-primary">৳{Number(room.pricePerNight).toLocaleString()}</p>
                   <p className="text-gray-600">per night</p>
                 </div>
                 <div className="bg-secondary p-4 rounded-lg text-center">

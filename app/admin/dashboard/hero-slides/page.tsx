@@ -102,10 +102,10 @@ export default function HeroSlidesManagement() {
     if (slide) {
       setEditingSlide(slide);
       setFormData({
-        title: slide.title,
-        subtitle: slide.subtitle,
-        buttonText: slide.buttonText,
-        buttonLink: slide.buttonLink,
+        title: slide.title || '',
+        subtitle: slide.subtitle || '',
+        buttonText: slide.buttonText || '',
+        buttonLink: slide.buttonLink || '',
         order: slide.order,
         isActive: slide.isActive,
       });

@@ -6,13 +6,16 @@ export const api = axios.create({
   baseURL: API_URL,
 });
 
-// Add token to requests if available
-if (typeof window !== 'undefined') {
-  const token = localStorage.getItem('token');
-  if (token) {
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+// Add token to requests dynamically
+api.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
-}
+  return config;
+});
 
 // Auth API
 export const authAPI = {
@@ -25,7 +28,12 @@ export const authAPI = {
 // Rooms API
 export const roomsAPI = {
   getAll: () => api.get('/rooms'),
-  getAvailable: () => api.get('/rooms/available'),
+  getAvailable: (checkIn?: string, checkOut?: string) => {
+    if (checkIn && checkOut) {
+      return api.get(`/rooms/available?checkIn=${checkIn}&checkOut=${checkOut}`);
+    }
+    return api.get('/rooms/available');
+  },
   getOne: (id: number) => api.get(`/rooms/${id}`),
   create: (data: FormData) => api.post('/rooms', data, {
     headers: { 'Content-Type': 'multipart/form-data' }
@@ -66,8 +74,10 @@ export const conventionBookingsAPI = {
   getAll: () => api.get('/convention-bookings'),
   getOne: (id: number) => api.get(`/convention-bookings/${id}`),
   getByDate: (date: string) => api.get(`/convention-bookings/by-date?date=${date}`),
+  getAvailability: (date: string, timeSlot: string) => api.get(`/convention-bookings/availability?date=${date}&timeSlot=${timeSlot}`),
   create: (data: any) => api.post('/convention-bookings', data),
   update: (id: number, data: any) => api.put(`/convention-bookings/${id}`, data),
+  addPayment: (id: number, data: any) => api.post(`/convention-bookings/${id}/payments`, data),
   delete: (id: number) => api.delete(`/convention-bookings/${id}`),
 };
 

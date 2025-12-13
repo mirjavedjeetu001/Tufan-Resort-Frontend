@@ -3,40 +3,43 @@
 @import "slick-carousel/slick/slick.css";
 @import "slick-carousel/slick/slick-theme.css";
 
-/* ==================== TAILWIND V4 THEME ==================== */
+/* ==================== BANGLADESHI PREMIUM THEME ==================== */
 @theme {
-  --color-primary-50: #e6f7f7;
-  --color-primary-100: #ccefef;
-  --color-primary-200: #99dfdf;
-  --color-primary-300: #66cfcf;
-  --color-primary-400: #33bfbf;
-  --color-primary-500: #008080;
-  --color-primary-600: #006666;
-  --color-primary-700: #004d4d;
-  --color-primary-800: #003333;
-  --color-primary-900: #001a1a;
+  /* Forest Green - Primary (Bangladesh Nature & Flag) */
+  --color-primary-50: #e8f5e9;
+  --color-primary-100: #c8e6c9;
+  --color-primary-200: #a5d6a7;
+  --color-primary-300: #81c784;
+  --color-primary-400: #66bb6a;
+  --color-primary-500: #006747;
+  --color-primary-600: #005a3c;
+  --color-primary-700: #004d33;
+  --color-primary-800: #003d28;
+  --color-primary-900: #002a1b;
   
+  /* Golden Yellow - Accent (Royal Bengali) */
   --color-accent-50: #fffef5;
   --color-accent-100: #fffde6;
   --color-accent-200: #fffacc;
   --color-accent-300: #fff7b3;
   --color-accent-400: #fff499;
-  --color-accent-500: #FFD700;
-  --color-accent-600: #e6c200;
-  --color-accent-700: #ccad00;
-  --color-accent-800: #b39900;
-  --color-accent-900: #998400;
+  --color-accent-500: #f4a425;
+  --color-accent-600: #e09422;
+  --color-accent-700: #cc841f;
+  --color-accent-800: #b8741c;
+  --color-accent-900: #a46419;
   
-  --color-secondary-50: #fefefe;
-  --color-secondary-100: #fcfcf9;
-  --color-secondary-200: #f9f9f3;
-  --color-secondary-300: #f7f7ed;
-  --color-secondary-400: #f5f5dc;
-  --color-secondary-500: #ebebc8;
-  --color-secondary-600: #d1d1a0;
-  --color-secondary-700: #b7b778;
-  --color-secondary-800: #9d9d50;
-  --color-secondary-900: #838328;
+  /* Crimson Red - Secondary (Bangladesh Flag) */
+  --color-secondary-50: #ffebee;
+  --color-secondary-100: #ffcdd2;
+  --color-secondary-200: #ef9a9a;
+  --color-secondary-300: #e57373;
+  --color-secondary-400: #ef5350;
+  --color-secondary-500: #d32f2f;
+  --color-secondary-600: #c62828;
+  --color-secondary-700: #b71c1c;
+  --color-secondary-800: #a31818;
+  --color-secondary-900: #8f1414;
 
   --font-family-heading: 'Playfair Display', serif;
   --font-family-body: 'Roboto', sans-serif;
