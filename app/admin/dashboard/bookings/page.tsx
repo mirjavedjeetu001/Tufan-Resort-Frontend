@@ -14,6 +14,13 @@ interface Booking {
   customerPhone: string;
   customerWhatsapp?: string;
   customerAddress?: string;
+  referenceName?: string;
+  referencePhone?: string;
+  createdBy?: {
+    id: number;
+    name: string;
+    email: string;
+  };
   customerPhoto?: string;
   customerNidDocument?: string;
   checkInDate: string;
@@ -278,7 +285,7 @@ export default function BookingsManagement() {
     cancelled: bookings.filter(b => b.status === 'cancelled').length,
     totalRevenue: bookings
       .filter(b => b.status !== 'cancelled')
-      .reduce((sum, b) => sum + b.totalAmount, 0),
+      .reduce((sum, b) => sum + Number(b.totalAmount), 0),
   };
 
   const getStatusBadge = (status: string) => {
@@ -397,6 +404,8 @@ export default function BookingsManagement() {
                 <th className="px-4 py-3 text-left text-sm font-semibold">Booking ID</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold">Room</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold">Guest</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">Reference</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">Booked By</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold">Check-In</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold">Check-Out</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold">Amount</th>
@@ -416,6 +425,13 @@ export default function BookingsManagement() {
                   <td className="px-4 py-3">
                     <div className="font-semibold text-gray-800">{booking.customerName}</div>
                     <div className="text-xs text-gray-500">{booking.customerPhone}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-semibold text-gray-800">{booking.referenceName || '—'}</div>
+                    <div className="text-xs text-gray-500">{booking.referencePhone || ''}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-semibold text-primary-600">{booking.createdBy?.name || 'Admin'}</div>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {new Date(booking.checkInDate).toLocaleDateString()}

@@ -5,6 +5,7 @@ import axios from 'axios';
 import { useReactToPrint } from 'react-to-print';
 import { InvoiceTemplate } from '@/components/InvoiceTemplate';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 interface AdditionalGuest {
   name: string;
@@ -13,6 +14,7 @@ interface AdditionalGuest {
 }
 
 export default function PremiumBookingPage() {
+  const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [searchedRoom, setSearchedRoom] = useState<any>(null);
@@ -35,6 +37,8 @@ export default function PremiumBookingPage() {
     customerWhatsapp: '',
     customerEmail: '',
     customerAddress: '',
+    referenceName: '',
+    referencePhone: '',
     customerPhoto: null as File | null,
     customerNidDocument: null as File | null,
     
@@ -60,7 +64,41 @@ export default function PremiumBookingPage() {
 
   useEffect(() => {
     fetchRooms();
-  }, []);
+    
+    // Pre-fill from URL params if coming from dashboard
+    const roomId = searchParams.get('roomId');
+    const checkIn = searchParams.get('checkIn');
+    const checkOut = searchParams.get('checkOut');
+    
+    if (roomId && checkIn && checkOut) {
+      setFormData(prev => ({
+        ...prev,
+        roomId: roomId,
+        checkInDate: checkIn,
+        checkOutDate: checkOut,
+      }));
+      
+      // Auto-load the room details with dates
+      fetchRoomById(roomId, checkIn, checkOut);
+    }
+  }, [searchParams]);
+
+  const fetchRoomById = async (roomId: string, checkIn?: string, checkOut?: string) => {
+    try {
+      const response = await axios.get(`http://localhost:3001/rooms/${roomId}`);
+      setSearchedRoom(response.data);
+      setFormData(prev => ({ ...prev, roomId: response.data.id, roomNumber: response.data.roomNumber }));
+      
+      // If dates are provided, auto-check availability
+      if (checkIn && checkOut) {
+        setTimeout(() => {
+          checkAvailabilityWithDates(response.data.id, checkIn, checkOut);
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Error fetching room:', error);
+    }
+  };
 
   const fetchRooms = async () => {
     try {
@@ -86,6 +124,27 @@ export default function PremiumBookingPage() {
     } catch (error) {
       alert('Room not found');
       setSearchedRoom(null);
+    }
+  };
+
+  const checkAvailabilityWithDates = async (roomId: string, checkIn: string, checkOut: string) => {
+    try {
+      const room = await axios.get(`http://localhost:3001/rooms/${roomId}`);
+      const response = await axios.get(
+        `http://localhost:3001/rooms/check-availability/${room.data.roomNumber}?checkIn=${checkIn}&checkOut=${checkOut}`
+      );
+      setAvailability(response.data);
+      
+      if (response.data.available) {
+        // Calculate total amount
+        const checkInDate = new Date(checkIn);
+        const checkOutDate = new Date(checkOut);
+        const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+        const baseAmount = nights * response.data.room.pricePerNight;
+        setFormData(prev => ({ ...prev, totalAmount: baseAmount }));
+      }
+    } catch (error) {
+      console.error('Error checking availability:', error);
     }
   };
 
@@ -463,6 +522,28 @@ export default function PremiumBookingPage() {
                   onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006747]"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">Reference Name</label>
+                <input
+                  type="text"
+                  value={formData.referenceName}
+                  onChange={(e) => setFormData({ ...formData, referenceName: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006747]"
+                  placeholder="Who referred / booked"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">Reference Phone</label>
+                <input
+                  type="tel"
+                  value={formData.referencePhone}
+                  onChange={(e) => setFormData({ ...formData, referencePhone: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006747]"
+                  placeholder="Ref contact number"
                 />
               </div>
 
