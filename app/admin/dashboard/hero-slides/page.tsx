@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
+import Modal from '@/components/Modal';
+import { useModal } from '@/hooks/useModal';
 
 interface HeroSlide {
   id: number;
   title: string;
   subtitle: string;
-  imageUrl: string;
+  image: string;
   buttonText: string;
   buttonLink: string;
   order: number;
@@ -15,9 +17,10 @@ interface HeroSlide {
 }
 
 export default function HeroSlidesManagement() {
+  const { modalState, showModal, closeModal: closeNotificationModal } = useModal();
   const [slides, setSlides] = useState<HeroSlide[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
+  const [showFormModal, setShowFormModal] = useState(false);
   const [editingSlide, setEditingSlide] = useState<HeroSlide | null>(null);
   const [formData, setFormData] = useState({
     title: '',
@@ -83,7 +86,7 @@ export default function HeroSlidesManagement() {
       closeModal();
     } catch (error) {
       console.error('Error saving slide:', error);
-      alert('Error saving hero slide. Please try again.');
+      showModal('Error saving hero slide. Please try again.', 'error');
     }
   };
 
@@ -109,13 +112,13 @@ export default function HeroSlidesManagement() {
         order: slide.order,
         isActive: slide.isActive,
       });
-      setImagePreview(slide.imageUrl);
+      setImagePreview(slide.image ? `http://localhost:3001${slide.image}` : '');
     }
-    setShowModal(true);
+    setShowFormModal(true);
   };
 
   const closeModal = () => {
-    setShowModal(false);
+    setShowFormModal(false);
     setEditingSlide(null);
     setFormData({
       title: '',
@@ -161,9 +164,9 @@ export default function HeroSlidesManagement() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
               {/* Image Preview */}
               <div className="relative h-64 md:h-auto">
-                {slide.imageUrl ? (
+                {slide.image ? (
                   <img
-                    src={slide.imageUrl}
+                    src={`http://localhost:3001${slide.image}`}
                     alt={slide.title}
                     className="w-full h-full object-cover"
                   />
@@ -248,7 +251,7 @@ export default function HeroSlidesManagement() {
       )}
 
       {/* Modal */}
-      {showModal && (
+      {showFormModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-5 flex justify-between items-center">
@@ -392,6 +395,17 @@ export default function HeroSlidesManagement() {
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={closeNotificationModal}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        onConfirm={modalState.onConfirm}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+      />
     </div>
   );
 }

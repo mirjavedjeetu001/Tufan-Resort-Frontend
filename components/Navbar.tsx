@@ -28,9 +28,6 @@ export default function Navbar() {
             <Link href="/about" className="px-4 py-2 rounded-lg hover:bg-white/10 hover:text-accent-400 transition-all duration-300 font-medium">
               About
             </Link>
-            <Link href="/admin" className="ml-4 bg-gradient-to-r from-accent-400 to-accent-500 text-gray-900 px-6 py-2 rounded-lg font-bold hover:shadow-glow hover:scale-105 transition-all duration-300">
-              Admin Login
-            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -63,9 +60,6 @@ export default function Navbar() {
               </Link>
               <Link href="/about" className="block py-3 px-4 rounded-lg hover:bg-white/10 hover:text-accent-400 transition-all duration-300">
                 About
-              </Link>
-              <Link href="/admin" className="block py-3 bg-gradient-to-r from-accent-400 to-accent-500 text-gray-900 px-4 rounded-lg font-bold text-center hover:shadow-glow transition-all duration-300 mt-2">
-                Admin Login
               </Link>
             </div>
           </div>

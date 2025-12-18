@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
+import Modal from '@/components/Modal';
+import { useModal } from '@/hooks/useModal';
 
 interface MenuItem {
   id: number;
@@ -22,9 +24,10 @@ const ROLE_OPTIONS = [
 ];
 
 export default function MenuManagement() {
+  const { modalState, showModal, closeModal: closeNotificationModal } = useModal();
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
+  const [showFormModal, setShowFormModal] = useState(false);
   const [selectedMenu, setSelectedMenu] = useState<MenuItem | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -45,7 +48,7 @@ export default function MenuManagement() {
       setMenuItems(response.data);
     } catch (error) {
       console.error('Error fetching menu items:', error);
-      alert('Error fetching menu items');
+      showModal('Error fetching menu items', 'error');
     } finally {
       setLoading(false);
     }
@@ -53,19 +56,19 @@ export default function MenuManagement() {
 
   const handleCreate = async () => {
     if (!formData.name || !formData.path) {
-      alert('Please fill required fields (Name and Path)');
+      showModal('Please fill required fields (Name and Path)', 'warning');
       return;
     }
 
     try {
       await api.post('/menu-items', formData);
       fetchMenuItems();
-      setShowModal(false);
+      setShowFormModal(false);
       resetForm();
-      alert('✅ Menu item created successfully!');
+      showModal('Menu item created successfully!', 'success');
     } catch (error) {
       console.error('Error creating menu item:', error);
-      alert('Error creating menu item');
+      showModal('Error creating menu item', 'error');
     }
   };
 
@@ -75,12 +78,12 @@ export default function MenuManagement() {
     try {
       await api.put(`/menu-items/${selectedMenu.id}`, formData);
       fetchMenuItems();
-      setShowModal(false);
+      setShowFormModal(false);
       resetForm();
-      alert('✅ Menu item updated successfully!');
+      showModal('Menu item updated successfully!', 'success');
     } catch (error) {
       console.error('Error updating menu item:', error);
-      alert('Error updating menu item');
+      showModal('Error updating menu item', 'error');
     }
   };
 
@@ -90,10 +93,10 @@ export default function MenuManagement() {
     try {
       await api.delete(`/menu-items/${id}`);
       fetchMenuItems();
-      alert('✅ Menu item deleted successfully!');
+      showModal('Menu item deleted successfully!', 'success');
     } catch (error) {
       console.error('Error deleting menu item:', error);
-      alert('Error deleting menu item');
+      showModal('Error deleting menu item', 'error');
     }
   };
 
@@ -103,7 +106,7 @@ export default function MenuManagement() {
       fetchMenuItems();
     } catch (error) {
       console.error('Error toggling menu status:', error);
-      alert('Error updating menu status');
+      showModal('Error updating menu status', 'error');
     }
   };
 
@@ -113,17 +116,17 @@ export default function MenuManagement() {
     try {
       await api.get('/menu-items/seed');
       fetchMenuItems();
-      alert('✅ Default menus created successfully!');
+      showModal('Default menus created successfully!', 'success');
     } catch (error) {
       console.error('Error seeding menus:', error);
-      alert('Error creating default menus');
+      showModal('Error creating default menus', 'error');
     }
   };
 
   const openCreateModal = () => {
     setSelectedMenu(null);
     resetForm();
-    setShowModal(true);
+    setShowFormModal(true);
   };
 
   const openEditModal = (menu: MenuItem) => {
@@ -136,7 +139,7 @@ export default function MenuManagement() {
       requiredRole: menu.requiredRole,
       description: menu.description || '',
     });
-    setShowModal(true);
+    setShowFormModal(true);
   };
 
   const resetForm = () => {
@@ -290,7 +293,7 @@ export default function MenuManagement() {
       </div>
 
       {/* Create/Edit Modal */}
-      {showModal && (
+      {showFormModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold mb-4 bg-gradient-to-r from-green-600 to-yellow-600 bg-clip-text text-transparent">
@@ -367,7 +370,7 @@ export default function MenuManagement() {
                   {selectedMenu ? 'Update' : 'Create'}
                 </button>
                 <button
-                  onClick={() => setShowModal(false)}
+                  onClick={() => setShowFormModal(false)}
                   className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors"
                 >
                   Cancel
@@ -377,6 +380,17 @@ export default function MenuManagement() {
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={closeNotificationModal}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        onConfirm={modalState.onConfirm}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+      />
     </div>
   );
 }

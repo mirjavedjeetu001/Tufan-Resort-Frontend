@@ -74,7 +74,10 @@ export const conventionBookingsAPI = {
   getAll: () => api.get('/convention-bookings'),
   getOne: (id: number) => api.get(`/convention-bookings/${id}`),
   getByDate: (date: string) => api.get(`/convention-bookings/by-date?date=${date}`),
-  getAvailability: (date: string, timeSlot: string) => api.get(`/convention-bookings/availability?date=${date}&timeSlot=${timeSlot}`),
+  getAvailability: (date: string, timeSlot: string) => 
+    api.get(`/convention-bookings/availability?date=${date}&timeSlot=${timeSlot}`),
+  checkAvailability: (hallId: number, date: string, timeSlot: string) => 
+    api.get(`/convention-bookings/check-availability/${hallId}?date=${date}&timeSlot=${timeSlot}`),
   create: (data: any) => api.post('/convention-bookings', data),
   update: (id: number, data: any) => api.put(`/convention-bookings/${id}`, data),
   addPayment: (id: number, data: any) => api.post(`/convention-bookings/${id}/payments`, data),

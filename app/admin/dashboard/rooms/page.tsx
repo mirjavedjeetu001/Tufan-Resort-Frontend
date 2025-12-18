@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
+import Modal from '@/components/Modal';
+import { useModal } from '@/hooks/useModal';
 
 interface Room {
   id: number;
@@ -19,6 +21,7 @@ interface Room {
 
 export default function RoomsManagement() {
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
@@ -27,6 +30,9 @@ export default function RoomsManagement() {
     name: '',
     type: 'Standard' as Room['type'],
     pricePerNight: 0,
+    hasAC: true,
+    acPrice: 0,
+    nonAcPrice: 0,
     maxGuests: 1,
     numberOfBeds: 1,
     description: '',
@@ -35,10 +41,24 @@ export default function RoomsManagement() {
   });
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreview, setImagePreview] = useState<string[]>([]);
+  const { modalState, showModal: showNotification, closeModal: closeNotificationModal } = useModal();
 
   useEffect(() => {
     fetchRooms();
+    fetchRoomTypes();
   }, []);
+
+  const fetchRoomTypes = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await api.get('/room-types', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setRoomTypes(response.data.filter((type: any) => type.isActive));
+    } catch (error) {
+      console.error('Error fetching room types:', error);
+    }
+  };
 
   const fetchRooms = async () => {
     try {
@@ -68,6 +88,9 @@ export default function RoomsManagement() {
     formDataToSend.append('name', formData.name);
     formDataToSend.append('type', formData.type);
     formDataToSend.append('pricePerNight', formData.pricePerNight.toString());
+    formDataToSend.append('hasAC', formData.hasAC.toString());
+    formDataToSend.append('acPrice', formData.acPrice.toString());
+    formDataToSend.append('nonAcPrice', formData.nonAcPrice.toString());
     formDataToSend.append('maxGuests', formData.maxGuests.toString());
     formDataToSend.append('numberOfBeds', formData.numberOfBeds.toString());
     formDataToSend.append('description', formData.description);
@@ -80,20 +103,42 @@ export default function RoomsManagement() {
 
     try {
       if (editingRoom) {
-        await api.put(`/rooms/${editingRoom.id}`, formDataToSend, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        // For updates, send data based on whether new images are provided
+        if (imageFiles.length > 0) {
+          await api.put(`/rooms/${editingRoom.id}`, formDataToSend, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+        } else {
+          // Send JSON data without images
+          const jsonData = {
+            roomNumber: formData.roomNumber,
+            name: formData.name,
+            type: formData.type,
+            pricePerNight: Number(formData.pricePerNight),
+            hasAC: formData.hasAC,
+            acPrice: Number(formData.acPrice),
+            nonAcPrice: Number(formData.nonAcPrice),
+            maxGuests: Number(formData.maxGuests),
+            numberOfBeds: Number(formData.numberOfBeds),
+            description: formData.description,
+            amenities: formData.amenities,
+            status: formData.status,
+          };
+          await api.put(`/rooms/${editingRoom.id}`, jsonData);
+        }
+        showNotification('Room updated successfully!', 'success');
       } else {
         await api.post('/rooms', formDataToSend, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
+        showNotification('Room created successfully!', 'success');
       }
       
       fetchRooms();
       closeModal();
     } catch (error) {
       console.error('Error saving room:', error);
-      alert('Error saving room. Please try again.');
+      showNotification('Error saving room. Please try again.', 'error');
     }
   };
 
@@ -108,6 +153,339 @@ export default function RoomsManagement() {
     }
   };
 
+  const handlePrintRoom = (room: Room) => {
+    // Create a print window
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Room Details - ${room.roomNumber}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: Arial, sans-serif; 
+              padding: 40px; 
+              background: white;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              padding-bottom: 20px;
+              border-bottom: 3px solid #006747;
+            }
+            .header h1 {
+              color: #006747;
+              font-size: 32px;
+              margin-bottom: 10px;
+            }
+            .header p {
+              color: #666;
+              font-size: 16px;
+            }
+            .room-details {
+              margin: 30px 0;
+            }
+            .detail-row {
+              display: flex;
+              padding: 15px;
+              border-bottom: 1px solid #eee;
+            }
+            .detail-row:nth-child(even) {
+              background: #f9f9f9;
+            }
+            .detail-label {
+              font-weight: bold;
+              color: #006747;
+              width: 200px;
+            }
+            .detail-value {
+              color: #333;
+              flex: 1;
+            }
+            .amenities-list {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 10px;
+              margin-top: 5px;
+            }
+            .amenity-tag {
+              background: #006747;
+              color: white;
+              padding: 5px 15px;
+              border-radius: 20px;
+              font-size: 14px;
+            }
+            .status-badge {
+              display: inline-block;
+              padding: 8px 20px;
+              border-radius: 20px;
+              font-weight: bold;
+              text-transform: uppercase;
+            }
+            .status-available { background: #10b981; color: white; }
+            .status-booked { background: #f59e0b; color: white; }
+            .status-maintenance { background: #ef4444; color: white; }
+            .footer {
+              margin-top: 50px;
+              text-align: center;
+              color: #999;
+              font-size: 12px;
+              padding-top: 20px;
+              border-top: 2px solid #eee;
+            }
+            @media print {
+              body { padding: 20px; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>🏨 Lake View Resort</h1>
+            <p>Room Details Report</p>
+          </div>
+
+          <div class="room-details">
+            <div class="detail-row">
+              <div class="detail-label">Room Number:</div>
+              <div class="detail-value"><strong>${room.roomNumber}</strong></div>
+            </div>
+            
+            <div class="detail-row">
+              <div class="detail-label">Room Name:</div>
+              <div class="detail-value">${room.name}</div>
+            </div>
+            
+            <div class="detail-row">
+              <div class="detail-label">Room Type:</div>
+              <div class="detail-value">${room.type}</div>
+            </div>
+            
+            <div class="detail-row">
+              <div class="detail-label">Price Per Night:</div>
+              <div class="detail-value"><strong>৳${room.pricePerNight.toLocaleString('en-BD')}</strong></div>
+            </div>
+            
+            <div class="detail-row">
+              <div class="detail-label">Maximum Guests:</div>
+              <div class="detail-value">${room.maxGuests} persons</div>
+            </div>
+            
+            <div class="detail-row">
+              <div class="detail-label">Number of Beds:</div>
+              <div class="detail-value">${room.numberOfBeds}</div>
+            </div>
+            
+            <div class="detail-row">
+              <div class="detail-label">Status:</div>
+              <div class="detail-value">
+                <span class="status-badge status-${room.status}">${room.status}</span>
+              </div>
+            </div>
+            
+            <div class="detail-row">
+              <div class="detail-label">Description:</div>
+              <div class="detail-value">${room.description}</div>
+            </div>
+            
+            <div class="detail-row">
+              <div class="detail-label">Amenities:</div>
+              <div class="detail-value">
+                <div class="amenities-list">
+                  ${room.amenities.map(a => `<span class="amenity-tag">${a}</span>`).join('')}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="footer">
+            <p>Generated on: ${new Date().toLocaleString('en-GB')}</p>
+            <p>Lake View Resort - Premium Accommodation</p>
+          </div>
+
+          <script>
+            window.onload = () => {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
+  const handlePrintAllRooms = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const roomsList = rooms.map(room => `
+      <div class="room-card">
+        <div class="room-header">
+          <h2>${room.roomNumber} - ${room.name}</h2>
+          <span class="status-badge status-${room.status}">${room.status}</span>
+        </div>
+        <div class="room-details">
+          <div class="detail-item">
+            <strong>Type:</strong> ${room.type}
+          </div>
+          <div class="detail-item">
+            <strong>Price:</strong> ৳${room.pricePerNight.toLocaleString('en-BD')}/night
+          </div>
+          ${room.hasAC ? `
+            <div class="detail-item">
+              <strong>AC Price:</strong> ৳${room.acPrice?.toLocaleString('en-BD') || room.pricePerNight.toLocaleString('en-BD')}/night
+            </div>
+            <div class="detail-item">
+              <strong>Non-AC Price:</strong> ৳${room.nonAcPrice?.toLocaleString('en-BD') || room.pricePerNight.toLocaleString('en-BD')}/night
+            </div>
+          ` : ''}
+          <div class="detail-item">
+            <strong>Max Guests:</strong> ${room.maxGuests}
+          </div>
+          <div class="detail-item">
+            <strong>Beds:</strong> ${room.numberOfBeds}
+          </div>
+          <div class="detail-item description">
+            <strong>Description:</strong> ${room.description}
+          </div>
+          <div class="detail-item">
+            <strong>Amenities:</strong>
+            <div class="amenities">
+              ${room.amenities.map(a => `<span class="amenity-tag">${a}</span>`).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>All Rooms - Lake View Resort</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: Arial, sans-serif; 
+              padding: 30px;
+              background: white;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              padding-bottom: 20px;
+              border-bottom: 3px solid #006747;
+            }
+            .header h1 {
+              color: #006747;
+              font-size: 32px;
+              margin-bottom: 10px;
+            }
+            .room-card {
+              background: #fff;
+              border: 2px solid #e0e0e0;
+              border-radius: 10px;
+              padding: 20px;
+              margin-bottom: 20px;
+              page-break-inside: avoid;
+            }
+            .room-header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 15px;
+              padding-bottom: 15px;
+              border-bottom: 2px solid #006747;
+            }
+            .room-header h2 {
+              color: #006747;
+              font-size: 22px;
+            }
+            .status-badge {
+              padding: 8px 20px;
+              border-radius: 20px;
+              font-weight: bold;
+              text-transform: uppercase;
+              font-size: 12px;
+            }
+            .status-available { background: #10b981; color: white; }
+            .status-booked { background: #f59e0b; color: white; }
+            .status-maintenance { background: #ef4444; color: white; }
+            .room-details {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 15px;
+            }
+            .detail-item {
+              padding: 10px;
+              background: #f9f9f9;
+              border-radius: 5px;
+            }
+            .detail-item strong {
+              color: #006747;
+              display: block;
+              margin-bottom: 5px;
+            }
+            .description {
+              grid-column: 1 / -1;
+            }
+            .amenities {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 8px;
+              margin-top: 5px;
+            }
+            .amenity-tag {
+              background: #006747;
+              color: white;
+              padding: 4px 12px;
+              border-radius: 15px;
+              font-size: 12px;
+            }
+            .footer {
+              margin-top: 30px;
+              text-align: center;
+              color: #999;
+              font-size: 12px;
+              padding-top: 20px;
+              border-top: 2px solid #eee;
+            }
+            @media print {
+              body { padding: 15px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>🏨 Lake View Resort - All Rooms</h1>
+            <p>Complete Room Inventory Report</p>
+          </div>
+
+          ${roomsList}
+
+          <div class="footer">
+            <p>Total Rooms: ${rooms.length} | Generated on: ${new Date().toLocaleString('en-GB')}</p>
+            <p>Lake View Resort - Premium Accommodation</p>
+          </div>
+
+          <script>
+            window.onload = () => {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   const openModal = (room?: Room) => {
     if (room) {
       setEditingRoom(room);
@@ -116,6 +494,9 @@ export default function RoomsManagement() {
         name: room.name,
         type: room.type,
         pricePerNight: room.pricePerNight,
+        hasAC: room.hasAC !== undefined ? room.hasAC : true,
+        acPrice: room.acPrice || room.pricePerNight,
+        nonAcPrice: room.nonAcPrice || room.pricePerNight,
         maxGuests: room.maxGuests || 1,
         numberOfBeds: room.numberOfBeds || 1,
         description: room.description,
@@ -135,6 +516,9 @@ export default function RoomsManagement() {
       name: '',
       type: 'Standard',
       pricePerNight: 0,
+      hasAC: true,
+      acPrice: 0,
+      nonAcPrice: 0,
       maxGuests: 1,
       numberOfBeds: 1,
       description: '',
@@ -157,15 +541,23 @@ export default function RoomsManagement() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800">Room Management</h1>
-        <button
-          onClick={() => openModal()}
-          className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 shadow-md transition-all"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Add New Room
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={handlePrintAllRooms}
+            className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 shadow-md transition-all"
+          >
+            🖨️ Print All Rooms
+          </button>
+          <button
+            onClick={() => openModal()}
+            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add New Room
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -217,7 +609,7 @@ export default function RoomsManagement() {
                   <span>{room.maxGuests} Guests · {room.numberOfBeds} Bed(s)</span>
                 </div>
                 <div className="text-accent font-bold text-lg">
-                  ₹{room.pricePerNight}/night
+                  ৳{room.pricePerNight}/night
                 </div>
               </div>
               
@@ -243,13 +635,19 @@ export default function RoomsManagement() {
                   onClick={() => openModal(room)}
                   className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg font-medium transition-colors"
                 >
-                  Edit
+                  📝 Edit
+                </button>
+                <button
+                  onClick={() => handlePrintRoom(room)}
+                  className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-medium transition-colors"
+                >
+                  🖨️ Print
                 </button>
                 <button
                   onClick={() => handleDelete(room.id)}
                   className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg font-medium transition-colors"
                 >
-                  Delete
+                  🗑️ Delete
                 </button>
               </div>
             </div>
@@ -324,24 +722,41 @@ export default function RoomsManagement() {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Room Type *
                   </label>
-                  <select
-                    required
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value as Room['type'] })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                  >
-                    <option value="Standard">Standard</option>
-                    <option value="Deluxe">Deluxe</option>
-                    <option value="Suite">Suite</option>
-                    <option value="Family">Family</option>
-                  </select>
+                  {roomTypes.length > 0 ? (
+                    <select
+                      required
+                      value={formData.type}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value as Room['type'] })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    >
+                      <option value="">Select room type...</option>
+                      {roomTypes.map((type) => (
+                        <option key={type.id} value={type.name}>
+                          {type.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4">
+                      <p className="text-yellow-800 font-semibold mb-2">⚠️ No Room Types Available</p>
+                      <p className="text-yellow-700 text-sm mb-3">
+                        Please create room types first before adding rooms.
+                      </p>
+                      <a
+                        href="/admin/dashboard/room-types"
+                        className="inline-block bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-semibold text-sm"
+                      >
+                        🏷️ Go to Room Types Management
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Price per Night (₹) *
+                    Base Price per Night (৳) *
                   </label>
                   <input
                     type="number"
@@ -353,6 +768,55 @@ export default function RoomsManagement() {
                     placeholder="e.g., 3500"
                   />
                 </div>
+                
+                <div>
+                  <label className="flex items-center text-sm font-semibold text-gray-700 mb-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.hasAC}
+                      onChange={(e) => setFormData({ ...formData, hasAC: e.target.checked })}
+                      className="mr-2 w-4 h-4"
+                    />
+                    Room has AC option
+                  </label>
+                </div>
+              </div>
+
+              {formData.hasAC && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      ❄️ AC Price (৳) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={formData.acPrice || ''}
+                      onChange={(e) => setFormData({ ...formData, acPrice: parseInt(e.target.value) || 0 })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      placeholder="e.g., 4000"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      🌿 Non-AC Price (৳) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={formData.nonAcPrice || ''}
+                      onChange={(e) => setFormData({ ...formData, nonAcPrice: parseInt(e.target.value) || 0 })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      placeholder="e.g., 3000"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -463,7 +927,9 @@ export default function RoomsManagement() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-primary hover:bg-primary/90 text-white py-3 rounded-lg font-semibold transition-colors"
+                  disabled={roomTypes.length === 0 && !editingRoom}
+                  className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-3 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  title={roomTypes.length === 0 ? 'Please create room types first' : ''}
                 >
                   {editingRoom ? 'Update Room' : 'Add Room'}
                 </button>
@@ -472,6 +938,17 @@ export default function RoomsManagement() {
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={closeNotificationModal}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        onConfirm={modalState.onConfirm}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+      />
     </div>
   );
 }

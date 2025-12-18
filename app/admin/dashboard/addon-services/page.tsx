@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import Modal from '@/components/Modal';
+import { useModal } from '@/hooks/useModal';
 
 interface AddonService {
   id: number;
@@ -23,9 +25,10 @@ const CATEGORIES = [
 ];
 
 export default function AddonServicesPage() {
+  const { modalState, showModal: showNotification, closeModal: closeNotificationModal } = useModal();
   const [services, setServices] = useState<AddonService[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
+  const [showFormModal, setShowFormModal] = useState(false);
   const [editingService, setEditingService] = useState<AddonService | null>(null);
   const [filterCategory, setFilterCategory] = useState('ALL');
   const [formData, setFormData] = useState({
@@ -42,7 +45,7 @@ export default function AddonServicesPage() {
 
   const fetchServices = async () => {
     try {
-      const response = await axios.get('http://localhost:3001/addon-services');
+      const response = await api.get('/addon-services');
       setServices(response.data);
       setLoading(false);
     } catch (error) {
@@ -75,12 +78,12 @@ export default function AddonServicesPage() {
           headers: { Authorization: `Bearer ${token}` }
         });
       }
-      setShowModal(false);
+      setShowFormModal(false);
       resetForm();
       fetchServices();
     } catch (error) {
       console.error('Error saving addon service:', error);
-      alert('Failed to save addon service');
+      showNotification('Failed to save addon service', 'error');
     }
   };
 
@@ -93,7 +96,7 @@ export default function AddonServicesPage() {
       price: service.price.toString(),
       isActive: service.isActive
     });
-    setShowModal(true);
+    setShowFormModal(true);
   };
 
   const handleDelete = async (id: number) => {
@@ -107,7 +110,7 @@ export default function AddonServicesPage() {
       fetchServices();
     } catch (error) {
       console.error('Error deleting addon service:', error);
-      alert('Failed to delete addon service');
+      showNotification('Failed to delete addon service', 'error');
     }
   };
 
@@ -190,7 +193,7 @@ export default function AddonServicesPage() {
         <button
           onClick={() => {
             resetForm();
-            setShowModal(true);
+            setShowFormModal(true);
           }}
           className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl hover:shadow-lg transition-all duration-300 font-semibold"
         >
@@ -283,7 +286,7 @@ export default function AddonServicesPage() {
       </div>
 
       {/* Modal */}
-      {showModal && (
+      {showFormModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-6 text-white rounded-t-2xl">
@@ -366,7 +369,7 @@ export default function AddonServicesPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setShowModal(false);
+                    setShowFormModal(false);
                     resetForm();
                   }}
                   className="flex-1 bg-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-400 transition-colors font-semibold"
@@ -378,6 +381,17 @@ export default function AddonServicesPage() {
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={closeNotificationModal}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        onConfirm={modalState.onConfirm}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+      />
     </div>
   );
 }

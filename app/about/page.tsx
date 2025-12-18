@@ -24,16 +24,16 @@ export default function AboutPage() {
     <div className="min-h-screen">
       <Navbar />
       
-      <main className="pt-24 pb-16">
+      <main className="pt-20 sm:pt-24 pb-12 sm:pb-16">
         <div className="container mx-auto px-4">
-          <h1 className="text-5xl font-heading font-bold text-center mb-4">About Tufan Resort</h1>
-          <p className="text-center text-gray-600 mb-12">Your sanctuary of luxury and tranquility</p>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-heading font-bold text-center mb-3 sm:mb-4">About Tufan Resort</h1>
+          <p className="text-center text-sm sm:text-base text-gray-600 mb-8 sm:mb-12">Your sanctuary of luxury and tranquility</p>
 
           <div className="max-w-4xl mx-auto">
             {/* About Section */}
-            <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
-              <h2 className="text-3xl font-heading font-bold mb-4">Our Story</h2>
-              <p className="text-lg text-gray-700 leading-relaxed mb-6">
+            <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8">
+              <h2 className="text-2xl sm:text-3xl font-heading font-bold mb-3 sm:mb-4">Our Story</h2>
+              <p className="text-base sm:text-lg text-gray-700 leading-relaxed mb-4 sm:mb-6">
                 {resortInfo?.aboutText || 'Welcome to Tufan Resort, where luxury meets nature. Experience world-class hospitality in our premium accommodations and state-of-the-art convention facilities.'}
               </p>
               {resortInfo?.missionText && (
@@ -47,9 +47,9 @@ export default function AboutPage() {
             </div>
 
             {/* Facilities */}
-            <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
-              <h2 className="text-3xl font-heading font-bold mb-6">Facilities & Amenities</h2>
-              <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8">
+              <h2 className="text-2xl sm:text-3xl font-heading font-bold mb-4 sm:mb-6">Facilities & Amenities</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {resortInfo?.facilities?.length > 0 ? resortInfo.facilities.map((facility: string, idx: number) => (
                   <div key={idx} className="flex items-center space-x-3 bg-secondary p-4 rounded-lg">
                     <span className="text-primary text-2xl">✓</span>

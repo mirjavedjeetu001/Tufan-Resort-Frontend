@@ -2,38 +2,53 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
+import Modal from '@/components/Modal';
+import { useModal } from '@/hooks/useModal';
 
 interface ResortInfo {
   id?: number;
-  name: string;
-  tagline: string;
-  description: string;
+  aboutText: string;
+  missionText?: string;
   email: string;
   phone: string;
   address: string;
-  facebookUrl: string;
-  instagramUrl: string;
-  twitterUrl: string;
-  checkInTime: string;
-  checkOutTime: string;
+  mapEmbedUrl?: string;
+  socialLinks?: {
+    facebook?: string;
+    instagram?: string;
+    twitter?: string;
+  };
+  facilities?: string[];
+  vatEnabled?: boolean;
+  vatPercentage?: number;
+  checkInCheckOutMode?: 'fixed' | 'automatic';
+  defaultCheckInTime?: string;
+  defaultCheckOutTime?: string;
 }
 
 export default function ResortInfoManagement() {
+  const { modalState, showModal, closeModal } = useModal();
   const [resortInfo, setResortInfo] = useState<ResortInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<ResortInfo>({
-    name: '',
-    tagline: '',
-    description: '',
+    aboutText: '',
+    missionText: '',
     email: '',
     phone: '',
     address: '',
-    facebookUrl: '',
-    instagramUrl: '',
-    twitterUrl: '',
-    checkInTime: '14:00',
-    checkOutTime: '11:00',
+    mapEmbedUrl: '',
+    socialLinks: {
+      facebook: '',
+      instagram: '',
+      twitter: '',
+    },
+    facilities: [],
+    vatEnabled: false,
+    vatPercentage: 0,
+    checkInCheckOutMode: 'automatic',
+    defaultCheckInTime: '14:00',
+    defaultCheckOutTime: '12:00',
   });
 
   useEffect(() => {
@@ -44,8 +59,16 @@ export default function ResortInfoManagement() {
     try {
       const response = await api.get('/resort-info');
       if (response.data) {
-        setResortInfo(response.data);
-        setFormData(response.data);
+        // Ensure socialLinks is an object and convert time format from HH:mm:ss to HH:mm
+        const data = {
+          ...response.data,
+          socialLinks: response.data.socialLinks || { facebook: '', instagram: '', twitter: '' },
+          facilities: response.data.facilities || [],
+          defaultCheckInTime: response.data.defaultCheckInTime ? response.data.defaultCheckInTime.substring(0, 5) : '14:00',
+          defaultCheckOutTime: response.data.defaultCheckOutTime ? response.data.defaultCheckOutTime.substring(0, 5) : '12:00',
+        };
+        setResortInfo(data);
+        setFormData(data);
       }
     } catch (error) {
       console.error('Error fetching resort info:', error);
@@ -59,12 +82,19 @@ export default function ResortInfoManagement() {
     setSaving(true);
     
     try {
-      await api.put('/resort-info', formData);
-      alert('Resort information updated successfully!');
+      // Convert time format from HH:mm to HH:mm:ss for MySQL
+      const dataToSend = {
+        ...formData,
+        defaultCheckInTime: formData.defaultCheckInTime ? `${formData.defaultCheckInTime}:00` : '14:00:00',
+        defaultCheckOutTime: formData.defaultCheckOutTime ? `${formData.defaultCheckOutTime}:00` : '12:00:00',
+      };
+      
+      await api.put('/resort-info', dataToSend);
+      showModal('Resort information updated successfully!', 'success');
       fetchResortInfo();
     } catch (error) {
       console.error('Error saving resort info:', error);
-      alert('Error saving resort information. Please try again.');
+      showModal('Error saving resort information. Please try again.', 'error');
     } finally {
       setSaving(false);
     }
@@ -98,43 +128,28 @@ export default function ResortInfoManagement() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Resort Name *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-                placeholder="Tufan Resort"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                Tagline *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.tagline}
-                onChange={(e) => setFormData({ ...formData, tagline: e.target.value })}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-                placeholder="Your Paradise by the Lake"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                Description *
+                About Text *
               </label>
               <textarea
                 required
                 rows={4}
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                value={formData.aboutText}
+                onChange={(e) => setFormData({ ...formData, aboutText: e.target.value })}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                 placeholder="Describe your resort, its features, and what makes it special..."
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                Mission Text
+              </label>
+              <textarea
+                rows={3}
+                value={formData.missionText || ''}
+                onChange={(e) => setFormData({ ...formData, missionText: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                placeholder="Your resort's mission statement..."
               />
             </div>
           </div>
@@ -213,8 +228,8 @@ export default function ResortInfoManagement() {
               </label>
               <input
                 type="url"
-                value={formData.facebookUrl}
-                onChange={(e) => setFormData({ ...formData, facebookUrl: e.target.value })}
+                value={formData.socialLinks?.facebook || ''}
+                onChange={(e) => setFormData({ ...formData, socialLinks: { ...formData.socialLinks, facebook: e.target.value } })}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                 placeholder="https://facebook.com/tufanresort"
               />
@@ -229,8 +244,8 @@ export default function ResortInfoManagement() {
               </label>
               <input
                 type="url"
-                value={formData.instagramUrl}
-                onChange={(e) => setFormData({ ...formData, instagramUrl: e.target.value })}
+                value={formData.socialLinks?.instagram || ''}
+                onChange={(e) => setFormData({ ...formData, socialLinks: { ...formData.socialLinks, instagram: e.target.value } })}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                 placeholder="https://instagram.com/tufanresort"
               />
@@ -245,8 +260,8 @@ export default function ResortInfoManagement() {
               </label>
               <input
                 type="url"
-                value={formData.twitterUrl}
-                onChange={(e) => setFormData({ ...formData, twitterUrl: e.target.value })}
+                value={formData.socialLinks?.twitter || ''}
+                onChange={(e) => setFormData({ ...formData, socialLinks: { ...formData.socialLinks, twitter: e.target.value } })}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                 placeholder="https://twitter.com/tufanresort"
               />
@@ -254,41 +269,145 @@ export default function ResortInfoManagement() {
           </div>
         </div>
 
-        {/* Booking Settings */}
+        {/* Additional Settings */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+          <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Additional Settings
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                Map Embed URL
+              </label>
+              <input
+                type="url"
+                value={formData.mapEmbedUrl || ''}
+                onChange={(e) => setFormData({ ...formData, mapEmbedUrl: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                placeholder="Google Maps embed URL"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={formData.vatEnabled || false}
+                  onChange={(e) => setFormData({ ...formData, vatEnabled: e.target.checked })}
+                  className="w-4 h-4 text-primary focus:ring-primary border-gray-300 rounded"
+                />
+                Enable VAT
+              </label>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                VAT Percentage (%)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                value={formData.vatPercentage || 0}
+                onChange={(e) => setFormData({ ...formData, vatPercentage: parseFloat(e.target.value) || 0 })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                placeholder="0.00"
+                disabled={!formData.vatEnabled}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Check-In/Check-Out Settings */}
         <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
           <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
             <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Booking Settings
+            Check-In / Check-Out Settings
           </h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                Check-in Time *
+              <label className="block text-sm font-bold text-gray-700 mb-3">
+                Time Mode
               </label>
-              <input
-                type="time"
-                required
-                value={formData.checkInTime}
-                onChange={(e) => setFormData({ ...formData, checkInTime: e.target.value })}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-primary hover:bg-primary/5 ${
+                  formData.checkInCheckOutMode === 'fixed' ? 'border-primary bg-primary/10' : 'border-gray-200'
+                }">
+                  <input
+                    type="radio"
+                    name="checkInCheckOutMode"
+                    value="fixed"
+                    checked={formData.checkInCheckOutMode === 'fixed'}
+                    onChange={(e) => setFormData({ ...formData, checkInCheckOutMode: 'fixed' })}
+                    className="w-5 h-5 text-primary focus:ring-primary"
+                  />
+                  <div className="ml-3">
+                    <div className="font-bold text-gray-800">📌 Fixed Default Time</div>
+                    <div className="text-sm text-gray-600">Use default check-in/out times for all bookings</div>
+                  </div>
+                </label>
+                
+                <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-primary hover:bg-primary/5 ${
+                  formData.checkInCheckOutMode === 'automatic' ? 'border-primary bg-primary/10' : 'border-gray-200'
+                }">
+                  <input
+                    type="radio"
+                    name="checkInCheckOutMode"
+                    value="automatic"
+                    checked={formData.checkInCheckOutMode === 'automatic'}
+                    onChange={(e) => setFormData({ ...formData, checkInCheckOutMode: 'automatic' })}
+                    className="w-5 h-5 text-primary focus:ring-primary"
+                  />
+                  <div className="ml-3">
+                    <div className="font-bold text-gray-800">⚡ Automatic</div>
+                    <div className="text-sm text-gray-600">Let users choose their preferred times</div>
+                  </div>
+                </label>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                Check-out Time *
-              </label>
-              <input
-                type="time"
-                required
-                value={formData.checkOutTime}
-                onChange={(e) => setFormData({ ...formData, checkOutTime: e.target.value })}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-              />
-            </div>
+            {formData.checkInCheckOutMode === 'fixed' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                    </svg>
+                    Default Check-In Time
+                  </label>
+                  <input
+                    type="time"
+                    value={formData.defaultCheckInTime || '14:00'}
+                    onChange={(e) => setFormData({ ...formData, defaultCheckInTime: e.target.value })}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all text-lg font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Default Check-Out Time
+                  </label>
+                  <input
+                    type="time"
+                    value={formData.defaultCheckOutTime || '12:00'}
+                    onChange={(e) => setFormData({ ...formData, defaultCheckOutTime: e.target.value })}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all text-lg font-semibold"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -318,6 +437,17 @@ export default function ResortInfoManagement() {
           </button>
         </div>
       </form>
+
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={closeModal}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        onConfirm={modalState.onConfirm}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+      />
     </div>
   );
 }

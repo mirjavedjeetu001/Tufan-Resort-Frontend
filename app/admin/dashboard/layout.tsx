@@ -11,7 +11,7 @@ export default function AdminLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<any>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -24,6 +24,10 @@ export default function AdminLayout({
     }
   }, []);
 
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -35,6 +39,12 @@ export default function AdminLayout({
       name: 'Dashboard',
       icon: '📊',
       path: '/admin/dashboard',
+      permission: 'dashboard.view',
+    },
+    {
+      name: "Today's Summary",
+      icon: '📅',
+      path: '/admin/dashboard/todays-summary',
       permission: 'dashboard.view',
     },
     {
@@ -68,6 +78,18 @@ export default function AdminLayout({
       permission: 'convention-bookings.manage',
     },
     {
+      name: 'Room Bookings Report',
+      icon: '📊',
+      path: '/admin/dashboard/reports/room-bookings',
+      permission: 'bookings.manage',
+    },
+    {
+      name: 'Convention Report',
+      icon: '📈',
+      path: '/admin/dashboard/reports/convention-bookings',
+      permission: 'convention-bookings.manage',
+    },
+    {
       name: 'Food Packages',
       icon: '🍽️',
       path: '/admin/dashboard/food-packages',
@@ -84,6 +106,12 @@ export default function AdminLayout({
       icon: '🖼️',
       path: '/admin/dashboard/hero-slides',
       permission: 'hero-slides.manage',
+    },
+    {
+      name: 'Room Types',
+      icon: '🏷️',
+      path: '/admin/dashboard/room-types',
+      permission: 'rooms.manage',
     },
     {
       name: 'Resort Settings',
@@ -115,18 +143,18 @@ export default function AdminLayout({
       {/* Top Navigation Bar */}
       <nav className="bg-gradient-to-r from-primary-600 via-primary-500 to-primary-700 text-white shadow-xl sticky top-0 z-50">
         <div className="px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="lg:hidden text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+              className="lg:hidden text-white p-2 hover:bg-white/10 rounded-lg"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
             <div>
-              <h1 className="text-2xl font-bold">🏞️ Tufan Resort CMS</h1>
-              <p className="text-xs text-green-100">Content Management System</p>
+              <h1 className="text-lg sm:text-2xl font-bold">🏞️ Tufan Resort CMS</h1>
+              <p className="text-xs text-green-100 hidden sm:block">Content Management System</p>
             </div>
           </div>
           
@@ -154,12 +182,12 @@ export default function AdminLayout({
             
             <button
               onClick={handleLogout}
-              className="bg-secondary-600 hover:bg-secondary-700 px-4 py-2 rounded-lg font-semibold shadow-lg transition-all transform hover:scale-105 flex items-center gap-2"
+              className="bg-secondary-600 hover:bg-secondary-700 px-3 sm:px-4 py-2 rounded-lg font-semibold shadow-lg transition-all transform hover:scale-105 flex items-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
-              <span className="hidden md:inline">Logout</span>
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </div>
@@ -170,8 +198,7 @@ export default function AdminLayout({
         <aside
           className={`${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          } lg:translate-x-0 fixed lg:static inset-y-0 left-0 w-64 bg-white shadow-2xl transition-transform duration-300 ease-in-out z-40`}
-          style={{ marginTop: '0px' }}
+          } lg:translate-x-0 fixed lg:static inset-y-0 left-0 w-64 bg-white shadow-2xl transition-transform duration-300 ease-in-out z-40 top-16 lg:top-0`}
         >
           <div className="p-4 h-full overflow-y-auto pt-6">
             <div className="mb-6 p-4 bg-gradient-to-r from-primary/10 to-green-50 rounded-xl border-2 border-primary/20">
@@ -233,7 +260,7 @@ export default function AdminLayout({
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-30"
+          className="lg:hidden fixed inset-0 bg-black/50 z-30 top-16"
           onClick={() => setSidebarOpen(false)}
         ></div>
       )}

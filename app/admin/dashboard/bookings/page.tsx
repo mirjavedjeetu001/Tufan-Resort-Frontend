@@ -5,6 +5,8 @@ import { api } from '@/lib/api';
 import Link from 'next/link';
 import { useReactToPrint } from 'react-to-print';
 import { InvoiceTemplate } from '@/components/InvoiceTemplate';
+import Modal from '@/components/Modal';
+import { useModal } from '@/hooks/useModal';
 
 interface Booking {
   id: number;
@@ -23,6 +25,8 @@ interface Booking {
   };
   customerPhoto?: string;
   customerNidDocument?: string;
+  passportDocument?: string;
+  visitingCard?: string;
   checkInDate: string;
   checkOutDate: string;
   checkInTime?: string;
@@ -39,6 +43,8 @@ interface Booking {
   paymentMethod: 'cash' | 'card' | 'mfs';
   paymentStatus: 'pending' | 'partial' | 'paid' | 'refunded';
   status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled';
+  vatEnabled?: boolean;
+  vatAmount?: number;
   additionalGuests?: Array<{
     name: string;
     nid: string;
@@ -55,6 +61,7 @@ interface Booking {
 }
 
 export default function BookingsManagement() {
+  const { modalState, showModal, closeModal } = useModal();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -64,9 +71,15 @@ export default function BookingsManagement() {
   const [showTimeEditModal, setShowTimeEditModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showExtraChargesModal, setShowExtraChargesModal] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [showVatModal, setShowVatModal] = useState(false);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<{ url: string; title: string } | null>(null);
   const [timeData, setTimeData] = useState({ checkInTime: '', checkOutTime: '' });
   const [paymentData, setPaymentData] = useState({ amount: 0, method: 'cash' });
   const [extraChargesData, setExtraChargesData] = useState({ amount: 0, description: '' });
+  const [refundData, setRefundData] = useState({ amount: 0, method: 'cash', note: '' });
+  const [vatData, setVatData] = useState({ enabled: false, amount: 0 });
   const invoiceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -95,7 +108,7 @@ export default function BookingsManagement() {
       }
     } catch (error) {
       console.error('Error updating booking:', error);
-      alert('Error updating booking status');
+      showModal('Error updating booking status', 'error');
     }
   };
 
@@ -107,7 +120,7 @@ export default function BookingsManagement() {
         setShowDetailsModal(false);
       } catch (error) {
         console.error('Error deleting booking:', error);
-        alert('Error deleting booking');
+        showModal('Error deleting booking', 'error');
       }
     }
   };
@@ -126,10 +139,10 @@ export default function BookingsManagement() {
         checkInTime: timeData.checkInTime || selectedBooking.checkInTime,
         checkOutTime: timeData.checkOutTime || selectedBooking.checkOutTime,
       });
-      alert('Check-in/Check-out time updated successfully!');
+      showModal('Check-in/Check-out time updated successfully!', 'success');
     } catch (error) {
       console.error('Error updating time:', error);
-      alert('Error updating time');
+      showModal('Error updating time', 'error');
     }
   };
 
@@ -138,7 +151,7 @@ export default function BookingsManagement() {
     documentTitle: selectedBooking ? `Invoice-BOOKING-${selectedBooking.id.toString().padStart(5, '0')}` : 'Invoice',
   });
 
-  // Calculate grand total with discount
+  // Calculate grand total with discount and VAT
   const calculateGrandTotal = (booking: Booking): number => {
     // Ensure all values are numbers
     const baseAmount = Number(booking.totalAmount) || 0;
@@ -146,6 +159,8 @@ export default function BookingsManagement() {
     const discountPercentage = Number(booking.discountPercentage) || 0;
     const discountAmountValue = Number(booking.discountAmount) || 0;
     const extraCharges = Number(booking.extraCharges) || 0;
+    const vatEnabled = booking.vatEnabled || false;
+    const vatAmount = Number(booking.vatAmount) || 0;
     
     let discount = 0;
     if (discountType === 'percentage' && discountPercentage > 0) {
@@ -158,16 +173,47 @@ export default function BookingsManagement() {
     discount = Math.min(discount, baseAmount);
     
     const afterDiscount = baseAmount - discount;
-    const grandTotal = afterDiscount + extraCharges;
+    const grandTotal = afterDiscount + extraCharges + (vatEnabled ? vatAmount : 0);
     
-    console.log('calculateGrandTotal:', { baseAmount, discountType, discount, extraCharges, grandTotal });
+    console.log('calculateGrandTotal:', { baseAmount, discountType, discount, extraCharges, vatEnabled, vatAmount, grandTotal });
     
     return grandTotal;
   };
 
+  const processRefund = async () => {
+    if (!selectedBooking || refundData.amount <= 0) {
+      showModal('Please enter a valid refund amount', 'warning');
+      return;
+    }
+
+    if (refundData.amount > selectedBooking.advancePayment) {
+      showModal('Refund amount cannot exceed advance payment', 'warning');
+      return;
+    }
+
+    const newAdvancePayment = Number(selectedBooking.advancePayment) - Number(refundData.amount);
+
+    try {
+      await api.put(`/bookings/${selectedBooking.id}`, {
+        advancePayment: newAdvancePayment,
+        paymentStatus: newAdvancePayment <= 0 ? 'refunded' : 'partial',
+      });
+
+      setShowRefundModal(false);
+      setRefundData({ amount: 0, method: 'cash', note: '' });
+      fetchBookings();
+      const updatedBooking = await api.get(`/bookings/${selectedBooking.id}`);
+      setSelectedBooking(updatedBooking.data);
+      showModal(`Refund of ৳${refundData.amount} processed successfully!`, 'success');
+    } catch (error) {
+      console.error('Error processing refund:', error);
+      showModal('Error processing refund', 'error');
+    }
+  };
+
   const recordPayment = async () => {
     if (!selectedBooking || paymentData.amount <= 0) {
-      alert('Please enter a valid payment amount');
+      showModal('Please enter a valid payment amount', 'warning');
       return;
     }
 
@@ -192,7 +238,7 @@ export default function BookingsManagement() {
 
     // Ensure no NaN or null values
     if (isNaN(newAdvancePayment) || isNaN(newRemainingPayment) || isNaN(grandTotal)) {
-      alert('Error calculating payment. Please refresh and try again.');
+      showModal('Error calculating payment. Please refresh and try again.', 'error');
       console.error('NaN detected in payment calculation');
       return;
     }
@@ -217,10 +263,10 @@ export default function BookingsManagement() {
         paymentStatus: newRemainingPayment <= 0 ? 'paid' : newAdvancePayment > 0 ? 'partial' : 'pending',
       });
       
-      alert(`✅ Payment of ৳${paymentData.amount.toLocaleString()} recorded successfully!`);
+      showModal(`Payment of ৳${paymentData.amount.toLocaleString()} recorded successfully!`, 'success');
     } catch (error) {
       console.error('Error recording payment:', error);
-      alert('Error recording payment');
+      showModal('Error recording payment', 'error');
     }
   };
 
@@ -234,7 +280,7 @@ export default function BookingsManagement() {
 
     // Ensure no NaN values
     if (isNaN(newExtraCharges) || isNaN(newRemainingPayment) || isNaN(grandTotal)) {
-      alert('Error calculating charges. Please refresh and try again.');
+      showModal('Error calculating charges. Please refresh and try again.', 'error');
       return;
     }
 
@@ -261,10 +307,49 @@ export default function BookingsManagement() {
         remainingPayment: newRemainingPayment,
       });
       
-      alert(`✅ Extra charges of ৳${extraChargesData.amount.toLocaleString()} added successfully!`);
+      showModal(`Extra charges of ৳${extraChargesData.amount.toLocaleString()} added successfully!`, 'success');
     } catch (error) {
       console.error('Error updating extra charges:', error);
-      alert('Error updating extra charges');
+      showModal('Error updating extra charges', 'error');
+    }
+  };
+
+  const updateVat = async () => {
+    if (!selectedBooking) return;
+
+    try {
+      // Recalculate grand total and remaining payment
+      const updatedBooking = { 
+        ...selectedBooking, 
+        vatEnabled: vatData.enabled,
+        vatAmount: vatData.enabled ? vatData.amount : 0 
+      };
+      const grandTotal = calculateGrandTotal(updatedBooking);
+      const newRemainingPayment = Math.max(0, grandTotal - Number(selectedBooking.advancePayment));
+
+      // Single API call with all updated fields
+      await api.put(`/bookings/${selectedBooking.id}`, {
+        vatEnabled: vatData.enabled,
+        vatAmount: vatData.enabled ? vatData.amount : 0,
+        remainingPayment: newRemainingPayment,
+      });
+
+      setShowVatModal(false);
+      setVatData({ enabled: false, amount: 0 });
+      fetchBookings();
+
+      // Update selected booking
+      setSelectedBooking({
+        ...selectedBooking,
+        vatEnabled: vatData.enabled,
+        vatAmount: vatData.enabled ? vatData.amount : 0,
+        remainingPayment: newRemainingPayment,
+      });
+
+      showModal(vatData.enabled ? `VAT of ৳${vatData.amount.toLocaleString()} applied successfully!` : 'VAT removed successfully!', 'success');
+    } catch (error) {
+      console.error('Error updating VAT:', error);
+      showModal('Error updating VAT', 'error');
     }
   };
 
@@ -320,24 +405,25 @@ export default function BookingsManagement() {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Bookings Management</h1>
-          <p className="text-gray-600 mt-1">View and manage all room bookings</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Bookings Management</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">View and manage all room bookings</p>
         </div>
         <Link
           href="/admin/dashboard/premium-booking"
-          className="bg-gradient-to-r from-green-600 to-yellow-500 hover:from-green-700 hover:to-yellow-600 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 shadow-lg transition-all transform hover:scale-105"
+          className="bg-gradient-to-r from-green-600 to-yellow-500 hover:from-green-700 hover:to-yellow-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-semibold flex items-center gap-2 shadow-lg transition-all whitespace-nowrap text-sm sm:text-base"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          Create New Booking
+          <span className="hidden xs:inline">Create New Booking</span>
+          <span className="xs:hidden">New</span>
         </Link>
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6">
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-4 rounded-xl shadow-lg">
           <div className="text-2xl font-bold">{stats.total}</div>
           <div className="text-sm opacity-90">Total Bookings</div>
@@ -398,20 +484,20 @@ export default function BookingsManagement() {
       {/* Bookings Table */}
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[1200px]">
             <thead className="bg-gradient-to-r from-primary to-accent text-white">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Booking ID</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Room</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Guest</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Reference</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Booked By</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Check-In</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Check-Out</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Amount</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Payment</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Status</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Actions</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Serial/ID</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Room Number</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Customer Name</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Reference Person</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Booked By</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Check-In Date</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Check-Out Date</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Total Amount</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Payment Status</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Booking Status</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -456,15 +542,24 @@ export default function BookingsManagement() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <button
-                      onClick={() => {
-                        setSelectedBooking(booking);
-                        setShowDetailsModal(true);
-                      }}
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
-                    >
-                      View Details
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setSelectedBooking(booking);
+                          setShowDetailsModal(true);
+                        }}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={() => deleteBooking(booking.id)}
+                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+                        title="Delete Booking"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -485,8 +580,8 @@ export default function BookingsManagement() {
 
       {/* Details Modal */}
       {showDetailsModal && selectedBooking && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl my-8">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl my-4 sm:my-8 max-h-[95vh] overflow-y-auto">
             <div className="sticky top-0 bg-gradient-to-r from-primary to-accent text-white px-6 py-4 flex justify-between items-center rounded-t-xl">
               <h2 className="text-2xl font-bold">Booking Details #{selectedBooking.id}</h2>
               <button
@@ -610,35 +705,82 @@ export default function BookingsManagement() {
                 </div>
 
                 {/* Guest Documents */}
-                {(selectedBooking.customerPhoto || selectedBooking.customerNidDocument) && (
+                {(selectedBooking.customerPhoto || selectedBooking.customerNidDocument || selectedBooking.passportDocument || selectedBooking.visitingCard) && (
                   <div className="mt-4 pt-4 border-t border-green-200">
-                    <p className="text-sm font-semibold text-gray-700 mb-2">Uploaded Documents:</p>
-                    <div className="flex gap-3">
+                    <p className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      📎 Uploaded Documents
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
                       {selectedBooking.customerPhoto && (
-                        <a
-                          href={`http://localhost:3001${selectedBooking.customerPhoto}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="bg-white px-3 py-2 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 flex items-center gap-2 border border-blue-200"
+                        <button
+                          onClick={() => {
+                            setSelectedDocument({
+                              url: `http://localhost:3001${selectedBooking.customerPhoto}`,
+                              title: 'Customer Photo'
+                            });
+                            setShowDocumentModal(true);
+                          }}
+                          className="bg-blue-50 hover:bg-blue-100 px-4 py-3 rounded-lg text-sm font-medium text-blue-700 flex items-center gap-2 border-2 border-blue-200 transition-all"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
-                          View Photo
-                        </a>
+                          📷 Customer Photo
+                        </button>
                       )}
                       {selectedBooking.customerNidDocument && (
-                        <a
-                          href={`http://localhost:3001${selectedBooking.customerNidDocument}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="bg-white px-3 py-2 rounded-lg text-sm font-medium text-purple-600 hover:bg-purple-50 flex items-center gap-2 border border-purple-200"
+                        <button
+                          onClick={() => {
+                            setSelectedDocument({
+                              url: `http://localhost:3001${selectedBooking.customerNidDocument}`,
+                              title: 'NID Document'
+                            });
+                            setShowDocumentModal(true);
+                          }}
+                          className="bg-purple-50 hover:bg-purple-100 px-4 py-3 rounded-lg text-sm font-medium text-purple-700 flex items-center gap-2 border-2 border-purple-200 transition-all"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
                           </svg>
-                          View NID Document
-                        </a>
+                          🆔 NID Document
+                        </button>
+                      )}
+                      {selectedBooking.passportDocument && (
+                        <button
+                          onClick={() => {
+                            setSelectedDocument({
+                              url: `http://localhost:3001${selectedBooking.passportDocument}`,
+                              title: 'Passport Document'
+                            });
+                            setShowDocumentModal(true);
+                          }}
+                          className="bg-green-50 hover:bg-green-100 px-4 py-3 rounded-lg text-sm font-medium text-green-700 flex items-center gap-2 border-2 border-green-200 transition-all"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                          </svg>
+                          🛂 Passport
+                        </button>
+                      )}
+                      {selectedBooking.visitingCard && (
+                        <button
+                          onClick={() => {
+                            setSelectedDocument({
+                              url: `http://localhost:3001${selectedBooking.visitingCard}`,
+                              title: 'Visiting Card'
+                            });
+                            setShowDocumentModal(true);
+                          }}
+                          className="bg-orange-50 hover:bg-orange-100 px-4 py-3 rounded-lg text-sm font-medium text-orange-700 flex items-center gap-2 border-2 border-orange-200 transition-all"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                          </svg>
+                          💳 Visiting Card
+                        </button>
                       )}
                     </div>
                   </div>
@@ -757,6 +899,12 @@ export default function BookingsManagement() {
                       )}
                     </>
                   )}
+                  {selectedBooking.vatEnabled && selectedBooking.vatAmount && selectedBooking.vatAmount > 0 && (
+                    <div className="flex justify-between items-center text-indigo-600 pb-2">
+                      <span>VAT/Tax:</span>
+                      <span className="font-bold">+৳{selectedBooking.vatAmount.toLocaleString()}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center pt-2 border-t border-purple-200">
                     <span className="font-semibold text-gray-800">Grand Total:</span>
                     <span className="font-bold text-xl text-purple-600">
@@ -769,7 +917,7 @@ export default function BookingsManagement() {
                   </div>
                   <div className="flex justify-between items-center pb-2">
                     <span className="text-gray-700">Remaining:</span>
-                    <span className="font-bold text-red-600">৳{selectedBooking.remainingPayment.toLocaleString()}</span>
+                    <span className="font-bold text-red-600">৳{Math.max(0, calculateGrandTotal(selectedBooking) - selectedBooking.advancePayment).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center pt-2 border-t border-purple-200">
                     <span className="text-gray-700">Payment Method:</span>
@@ -784,12 +932,12 @@ export default function BookingsManagement() {
                 </div>
 
                 {/* Payment Action Buttons */}
-                <div className="mt-4 pt-4 border-t border-purple-200 grid grid-cols-2 gap-3">
+                <div className="mt-4 pt-4 border-t border-purple-200 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                   <button
                     onClick={() => setShowPaymentModal(true)}
-                    disabled={selectedBooking.remainingPayment <= 0}
+                    disabled={Math.max(0, calculateGrandTotal(selectedBooking) - selectedBooking.advancePayment) <= 0 || selectedBooking.status === 'cancelled'}
                     className={`py-3 rounded-lg font-semibold flex items-center justify-center gap-2 ${
-                      selectedBooking.remainingPayment > 0
+                      Math.max(0, calculateGrandTotal(selectedBooking) - selectedBooking.advancePayment) > 0 && selectedBooking.status !== 'cancelled'
                         ? 'bg-green-600 hover:bg-green-700 text-white'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
@@ -801,14 +949,54 @@ export default function BookingsManagement() {
                   </button>
                   <button
                     onClick={() => setShowExtraChargesModal(true)}
-                    className="bg-orange-600 hover:bg-orange-700 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2"
+                    disabled={selectedBooking.status === 'cancelled'}
+                    className={`${
+                      selectedBooking.status === 'cancelled'
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-orange-600 hover:bg-orange-700 text-white'
+                    } py-3 rounded-lg font-semibold flex items-center justify-center gap-2`}
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    ➕ Add Extra Charges
+                    ➕ Extra Charges
+                  </button>
+                  <button
+                    onClick={() => {
+                      setVatData({
+                        enabled: selectedBooking.vatEnabled || false,
+                        amount: selectedBooking.vatAmount || 0
+                      });
+                      setShowVatModal(true);
+                    }}
+                    disabled={selectedBooking.status === 'cancelled'}
+                    className={`${
+                      selectedBooking.status === 'cancelled'
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                    } py-3 rounded-lg font-semibold flex items-center justify-center gap-2`}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    📊 VAT/Tax
                   </button>
                 </div>
+                
+                {/* Refund Button for Cancelled Bookings */}
+                {selectedBooking.status === 'cancelled' && selectedBooking.advancePayment > 0 && selectedBooking.paymentStatus !== 'refunded' && (
+                  <div className="mt-3">
+                    <button
+                      onClick={() => setShowRefundModal(true)}
+                      className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z" />
+                      </svg>
+                      🔙 Process Refund (৳{selectedBooking.advancePayment.toLocaleString()} available)
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Status Management */}
@@ -833,7 +1021,7 @@ export default function BookingsManagement() {
               </div>
 
               {/* Action Buttons */}
-              <div className="grid grid-cols-3 gap-3 pt-4 border-t">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 pt-4 border-t">
                 <button
                   onClick={handlePrint}
                   className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 shadow-lg transform hover:scale-105"
@@ -931,9 +1119,9 @@ export default function BookingsManagement() {
 
       {/* Payment Recording Modal */}
       {showPaymentModal && selectedBooking && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-            <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-4 flex justify-between items-center rounded-t-xl">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-4 sm:px-6 py-4 flex justify-between items-center rounded-t-xl sticky top-0 z-10">
               <h2 className="text-xl font-bold">💰 Record Payment</h2>
               <button onClick={() => setShowPaymentModal(false)} className="text-white hover:bg-white/20 rounded-full p-1">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -950,7 +1138,7 @@ export default function BookingsManagement() {
                   <span className="font-semibold">Already Paid:</span> <span className="text-green-600 font-bold">৳{selectedBooking.advancePayment.toLocaleString()}</span>
                 </p>
                 <p className="text-sm text-gray-700">
-                  <span className="font-semibold">Remaining Amount:</span> <span className="text-red-600 font-bold">৳{selectedBooking.remainingPayment.toLocaleString()}</span>
+                  <span className="font-semibold">Remaining Amount:</span> <span className="text-red-600 font-bold">৳{Math.max(0, calculateGrandTotal(selectedBooking) - selectedBooking.advancePayment).toLocaleString()}</span>
                 </p>
               </div>
 
@@ -961,11 +1149,11 @@ export default function BookingsManagement() {
                     type="number"
                     value={paymentData.amount || ''}
                     onChange={(e) => setPaymentData({ ...paymentData, amount: parseFloat(e.target.value) || 0 })}
-                    max={selectedBooking.remainingPayment}
+                    max={Math.max(0, calculateGrandTotal(selectedBooking) - selectedBooking.advancePayment)}
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-lg font-bold"
                     placeholder="0"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Maximum: ৳{selectedBooking.remainingPayment.toLocaleString()}</p>
+                  <p className="text-xs text-gray-500 mt-1">Maximum: ৳{Math.max(0, calculateGrandTotal(selectedBooking) - selectedBooking.advancePayment).toLocaleString()}</p>
                 </div>
 
                 <div>
@@ -1077,10 +1265,314 @@ export default function BookingsManagement() {
         </div>
       )}
 
+      {/* Refund Modal */}
+      {showRefundModal && selectedBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-4 flex justify-between items-center rounded-t-xl">
+              <h2 className="text-xl font-bold">🔙 Process Refund</h2>
+              <button onClick={() => setShowRefundModal(false)} className="text-white hover:bg-white/20 rounded-full p-1">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-gray-700 mb-2">
+                  <span className="font-semibold">Guest:</span> {selectedBooking.customerName}
+                </p>
+                <p className="text-sm text-gray-700 mb-2">
+                  <span className="font-semibold">Status:</span> <span className="text-red-600 font-bold">Cancelled</span>
+                </p>
+                <p className="text-sm text-gray-700 mb-2">
+                  <span className="font-semibold">Advance Paid:</span> <span className="text-green-600 font-bold">৳{selectedBooking.advancePayment.toLocaleString()}</span>
+                </p>
+                <p className="text-xs text-red-600 mt-2">
+                  ⚠️ This booking is cancelled. Process refund to return the advance payment.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Refund Amount (৳)</label>
+                  <input
+                    type="number"
+                    value={refundData.amount || ''}
+                    onChange={(e) => setRefundData({ ...refundData, amount: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 text-lg font-bold"
+                    placeholder="0"
+                    max={selectedBooking.advancePayment}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Maximum refundable: ৳{selectedBooking.advancePayment.toLocaleString()}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Refund Method</label>
+                  <select
+                    value={refundData.method}
+                    onChange={(e) => setRefundData({ ...refundData, method: e.target.value })}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                  >
+                    <option value="cash">💵 Cash</option>
+                    <option value="card">💳 Card</option>
+                    <option value="mfs">📱 Mobile Banking</option>
+                    <option value="bank_transfer">🏦 Bank Transfer</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Refund Note (Optional)</label>
+                  <textarea
+                    value={refundData.note}
+                    onChange={(e) => setRefundData({ ...refundData, note: e.target.value })}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                    rows={2}
+                    placeholder="Reason for cancellation or refund notes..."
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={processRefund}
+                  disabled={refundData.amount <= 0 || refundData.amount > selectedBooking.advancePayment}
+                  className={`flex-1 py-3 rounded-lg font-bold ${
+                    refundData.amount > 0 && refundData.amount <= selectedBooking.advancePayment
+                      ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  ✅ Process Refund
+                </button>
+                <button
+                  onClick={() => {
+                    setShowRefundModal(false);
+                    setRefundData({ amount: 0, method: 'cash', note: '' });
+                  }}
+                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-lg font-bold"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VAT/Tax Modal */}
+      {showVatModal && selectedBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4 flex justify-between items-center rounded-t-xl">
+              <h2 className="text-xl font-bold">📊 Manage VAT/Tax</h2>
+              <button onClick={() => setShowVatModal(false)} className="text-white hover:bg-white/20 rounded-full p-1">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-gray-700 mb-2">
+                  <span className="font-semibold">Guest:</span> {selectedBooking.customerName}
+                </p>
+                <p className="text-sm text-gray-700 mb-2">
+                  <span className="font-semibold">Base Amount:</span> <span className="text-indigo-600 font-bold">৳{selectedBooking.totalAmount.toLocaleString()}</span>
+                </p>
+                <p className="text-sm text-gray-700 mb-2">
+                  <span className="font-semibold">Current Grand Total:</span> <span className="text-indigo-600 font-bold">৳{calculateGrandTotal(selectedBooking).toLocaleString()}</span>
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="vatEnabled"
+                    checked={vatData.enabled}
+                    onChange={(e) => setVatData({ ...vatData, enabled: e.target.checked })}
+                    className="w-5 h-5 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <label htmlFor="vatEnabled" className="text-sm font-semibold text-gray-800 cursor-pointer">
+                    Enable VAT/Tax
+                  </label>
+                </div>
+
+                {vatData.enabled && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">VAT/Tax Amount (৳)</label>
+                    <input
+                      type="number"
+                      value={vatData.amount || ''}
+                      onChange={(e) => setVatData({ ...vatData, amount: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-lg font-bold"
+                      placeholder="0"
+                      min="0"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Enter the VAT/tax amount to be added to the booking total
+                    </p>
+                  </div>
+                )}
+
+                {vatData.enabled && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <p className="text-sm text-gray-700">
+                      <span className="font-semibold">New Grand Total:</span>{' '}
+                      <span className="text-green-600 font-bold text-lg">
+                        ৳{(calculateGrandTotal(selectedBooking) - (selectedBooking.vatEnabled ? (selectedBooking.vatAmount || 0) : 0) + vatData.amount).toLocaleString()}
+                      </span>
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={updateVat}
+                  className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white py-3 rounded-lg font-bold"
+                >
+                  ✅ Update VAT
+                </button>
+                <button
+                  onClick={() => {
+                    setShowVatModal(false);
+                    setVatData({ enabled: false, amount: 0 });
+                  }}
+                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-lg font-bold"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Viewer Modal */}
+      {showDocumentModal && selectedDocument && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
+            <div className="bg-gradient-to-r from-primary to-accent text-white px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                {selectedDocument.title}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowDocumentModal(false);
+                  setSelectedDocument(null);
+                }}
+                className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="p-4 bg-gray-100 max-h-[calc(90vh-80px)] overflow-auto">
+              {(() => {
+                const url = selectedDocument.url.toLowerCase();
+                const isPDF = url.endsWith('.pdf');
+                const isImage = url.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/);
+                
+                if (isPDF) {
+                  return (
+                    <iframe
+                      src={selectedDocument.url}
+                      className="w-full h-[calc(90vh-160px)] bg-white rounded-lg shadow-inner"
+                      title={selectedDocument.title}
+                    />
+                  );
+                } else if (isImage) {
+                  return (
+                    <img
+                      src={selectedDocument.url}
+                      alt={selectedDocument.title}
+                      className="w-full h-auto max-h-[calc(90vh-160px)] object-contain bg-white rounded-lg shadow-lg mx-auto"
+                      onError={(e) => {
+                        console.error('Image failed to load:', selectedDocument.url);
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        const parent = (e.target as HTMLElement).parentElement;
+                        if (parent) {
+                          const errorDiv = document.createElement('div');
+                          errorDiv.className = 'text-center text-red-600 p-8';
+                          errorDiv.innerHTML = `
+                            <svg class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <p class="font-semibold">Unable to load image</p>
+                            <p class="text-sm text-gray-600 mt-2">Try downloading the file instead</p>
+                          `;
+                          parent.appendChild(errorDiv);
+                        }
+                      }}
+                    />
+                  );
+                } else {
+                  return (
+                    <div className="bg-white rounded-lg p-8 text-center">
+                      <svg className="w-20 h-20 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      <p className="text-lg font-semibold text-gray-700 mb-2">Document Preview Not Available</p>
+                      <p className="text-sm text-gray-600 mb-4">This file type cannot be previewed in the browser</p>
+                      <p className="text-xs text-gray-500">{selectedDocument.url.split('/').pop()}</p>
+                    </div>
+                  );
+                }
+              })()}
+            </div>
+
+            <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-t">
+              <a
+                href={selectedDocument.url}
+                download
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download
+              </a>
+              <a
+                href={selectedDocument.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                Open in New Tab
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Hidden Invoice Component for Printing */}
       <div className="hidden">
         {selectedBooking && <InvoiceTemplate ref={invoiceRef} booking={selectedBooking} />}
       </div>
+
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={closeModal}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        onConfirm={modalState.onConfirm}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+      />
     </div>
   );
 }

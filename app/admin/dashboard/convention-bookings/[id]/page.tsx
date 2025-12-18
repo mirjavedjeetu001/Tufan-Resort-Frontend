@@ -1,8 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api, conventionBookingsAPI } from '@/lib/api';
 import { useParams, useRouter } from 'next/navigation';
+import { useReactToPrint } from 'react-to-print';
+import Modal from '@/components/Modal';
+import { useModal } from '@/hooks/useModal';
+import { getRealTimeProgramStatus, isEventPassed, getRealTimePaymentStatus } from '@/utils/bookingStatus';
 
 interface ConventionBooking {
   id: number;
@@ -24,6 +28,7 @@ interface ConventionBooking {
   foodCost: number;
   selectedAddons: any;
   addonsCost: number;
+  addonQuantities: any;
   hallRent: number;
   discount: number;
   totalAmount: number;
@@ -32,27 +37,37 @@ interface ConventionBooking {
   paymentMethod: string;
   paymentStatus: string;
   status: string;
+  programStatus: string;
   notes: string;
   createdAt: string;
+  payments?: any[];
 }
 
 export default function ConventionBookingDetail() {
+  const { modalState, showModal, closeModal } = useModal();
   const params = useParams();
   const router = useRouter();
+  const invoiceRef = useRef<HTMLDivElement>(null);
   const [booking, setBooking] = useState<ConventionBooking | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editingAddons, setEditingAddons] = useState(false);
   const [allAddonServices, setAllAddonServices] = useState<any[]>([]);
   const [selectedAddons, setSelectedAddons] = useState<number[]>([]);
+  const [addonQuantities, setAddonQuantities] = useState<Record<number, number>>({});
   const [formData, setFormData] = useState({
     status: '',
     paymentStatus: '',
+    programStatus: '',
     advancePayment: 0,
     notes: '',
     discount: 0,
   });
   const [paymentForm, setPaymentForm] = useState({ amount: 0, method: 'cash', note: '' });
+
+  const handlePrintInvoice = useReactToPrint({
+    contentRef: invoiceRef,
+  });
 
   useEffect(() => {
     if (params.id) {
@@ -88,16 +103,28 @@ export default function ConventionBookingDetail() {
       }
       setSelectedAddons(parsedAddons);
       
+      // Parse addon quantities
+      let parsedQuantities: Record<number, number> = {};
+      try {
+        if (response.data.addonQuantities && typeof response.data.addonQuantities === 'string') {
+          parsedQuantities = JSON.parse(response.data.addonQuantities);
+        }
+      } catch (e) {
+        console.error('Error parsing addon quantities:', e);
+      }
+      setAddonQuantities(parsedQuantities);
+      
       setFormData({
         status: response.data.status,
         paymentStatus: response.data.paymentStatus,
+        programStatus: response.data.programStatus || 'pending',
         advancePayment: response.data.advancePayment,
         discount: response.data.discount || 0,
         notes: response.data.notes || '',
       });
     } catch (error) {
       console.error('Error fetching booking:', error);
-      alert('Error loading booking details');
+      showModal('Error loading booking details', 'error');
     } finally {
       setLoading(false);
     }
@@ -106,15 +133,27 @@ export default function ConventionBookingDetail() {
   const handleAddonToggle = (addonId: number) => {
     if (selectedAddons.includes(addonId)) {
       setSelectedAddons(selectedAddons.filter(id => id !== addonId));
+      // Remove quantity when unchecked
+      const newQuantities = { ...addonQuantities };
+      delete newQuantities[addonId];
+      setAddonQuantities(newQuantities);
     } else {
       setSelectedAddons([...selectedAddons, addonId]);
+      // Set default quantity to 1 when checked
+      setAddonQuantities({ ...addonQuantities, [addonId]: 1 });
     }
+  };
+
+  const handleQuantityChange = (addonId: number, quantity: number) => {
+    if (quantity < 1) return;
+    setAddonQuantities({ ...addonQuantities, [addonId]: quantity });
   };
 
   const calculateAddonsCost = () => {
     return selectedAddons.reduce((sum, id) => {
       const addon = allAddonServices.find(s => s.id === id);
-      return sum + (addon?.price || 0);
+      const quantity = addonQuantities[id] || 1;
+      return sum + ((addon?.price || 0) * quantity);
     }, 0);
   };
 
@@ -125,43 +164,57 @@ export default function ConventionBookingDetail() {
       
       const updateData = {
         selectedAddons: JSON.stringify(selectedAddons),
+        addonQuantities: JSON.stringify(addonQuantities),
         addonsCost: addonsCost,
         totalAmount: newTotal,
         remainingPayment: newTotal - formData.advancePayment,
       };
       
       await api.put(`/convention-bookings/${params.id}`, updateData);
-      alert('Add-ons updated successfully!');
+      showModal('Add-ons updated successfully!', 'success');
       setEditingAddons(false);
       fetchBooking();
     } catch (error) {
       console.error('Error updating addons:', error);
-      alert('Error updating add-ons');
+      showModal('Error updating add-ons', 'error');
     }
   };
 
   const handleUpdate = async () => {
     try {
       const currentTotal = booking!.totalAmount;
+      const advancePayment = Number(formData.advancePayment);
+      
+      // Auto-calculate payment status
+      let paymentStatus = formData.paymentStatus;
+      if (advancePayment === 0) {
+        paymentStatus = 'pending';
+      } else if (advancePayment >= currentTotal) {
+        paymentStatus = 'paid';
+      } else if (advancePayment > 0 && advancePayment < currentTotal) {
+        paymentStatus = 'partial';
+      }
+      
       const updateData = {
         ...formData,
-        remainingPayment: currentTotal - formData.advancePayment,
+        paymentStatus,
+        remainingPayment: currentTotal - advancePayment,
       };
       
       await api.put(`/convention-bookings/${params.id}`, updateData);
-      alert('Booking updated successfully!');
+      showModal('Booking updated successfully!', 'success');
       setEditing(false);
       fetchBooking();
     } catch (error) {
       console.error('Error updating booking:', error);
-      alert('Error updating booking');
+      showModal('Error updating booking', 'error');
     }
   };
 
   const handleAddPayment = async () => {
     if (!booking) return;
     if (paymentForm.amount <= 0) {
-      alert('Enter a valid payment amount');
+      showModal('Please enter a valid payment amount', 'warning');
       return;
     }
     try {
@@ -170,12 +223,12 @@ export default function ConventionBookingDetail() {
         method: paymentForm.method,
         note: paymentForm.note,
       });
-      alert('Payment recorded');
+      showModal('Payment recorded successfully!', 'success');
       setPaymentForm({ amount: 0, method: 'cash', note: '' });
       setBooking(res.data);
     } catch (error) {
       console.error('Error adding payment:', error);
-      alert('Error adding payment');
+      showModal('Error adding payment', 'error');
     }
   };
 
@@ -194,6 +247,17 @@ export default function ConventionBookingDetail() {
       pending: 'bg-red-100 text-red-800 border-red-300',
       partial: 'bg-yellow-100 text-yellow-800 border-yellow-300',
       paid: 'bg-green-100 text-green-800 border-green-300',
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800 border-gray-300';
+  };
+
+  const getProgramStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      pending: 'bg-gray-100 text-gray-800 border-gray-300',
+      confirmed: 'bg-blue-100 text-blue-800 border-blue-300',
+      running: 'bg-orange-100 text-orange-800 border-orange-300',
+      completed: 'bg-green-100 text-green-800 border-green-300',
+      cancelled: 'bg-red-100 text-red-800 border-red-300',
     };
     return colors[status] || 'bg-gray-100 text-gray-800 border-gray-300';
   };
@@ -237,7 +301,7 @@ export default function ConventionBookingDetail() {
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => window.print()}
+              onClick={handlePrintInvoice}
               className="px-6 py-3 bg-white/90 text-purple-700 rounded-lg font-bold hover:bg-white transition"
             >
               🧾 Print Invoice
@@ -363,19 +427,40 @@ export default function ConventionBookingDetail() {
                   <h3 className="font-bold mb-3">Select Add-on Services:</h3>
                   <div className="space-y-2 max-h-60 overflow-y-auto">
                     {allAddonServices.map(addon => (
-                      <label key={addon.id} className="flex items-center gap-3 p-2 hover:bg-white rounded cursor-pointer">
+                      <div key={addon.id} className="flex items-center gap-3 p-3 hover:bg-white rounded border-b">
                         <input
                           type="checkbox"
                           checked={selectedAddons.includes(addon.id)}
                           onChange={() => handleAddonToggle(addon.id)}
-                          className="w-5 h-5"
+                          className="w-5 h-5 cursor-pointer"
                         />
                         <div className="flex-1">
                           <div className="font-semibold">{addon.name}</div>
                           <div className="text-sm text-gray-600">{addon.description}</div>
                         </div>
-                        <div className="font-bold text-purple-600">৳{addon.price.toLocaleString()}</div>
-                      </label>
+                        {selectedAddons.includes(addon.id) && (
+                          <div className="flex items-center gap-2">
+                            <label className="text-sm font-semibold text-gray-600">Qty:</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={addonQuantities[addon.id] || 1}
+                              onChange={(e) => handleQuantityChange(addon.id, Number(e.target.value))}
+                              className="w-16 px-2 py-1 border-2 border-purple-300 rounded text-center font-bold"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <span className="text-xs text-gray-500">×</span>
+                          </div>
+                        )}
+                        <div className="font-bold text-purple-600 min-w-[100px] text-right">
+                          ৳{addon.price.toLocaleString()}
+                          {selectedAddons.includes(addon.id) && addonQuantities[addon.id] > 1 && (
+                            <div className="text-sm text-purple-700">
+                              = ৳{(addon.price * (addonQuantities[addon.id] || 1)).toLocaleString()}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     ))}
                   </div>
                   <div className="mt-4 flex gap-2">
@@ -390,12 +475,17 @@ export default function ConventionBookingDetail() {
                         setEditingAddons(false);
                         // Reset to current booking addons
                         let parsedAddons: number[] = [];
+                        let parsedQuantities: Record<number, number> = {};
                         try {
                           if (booking.selectedAddons && typeof booking.selectedAddons === 'string' && booking.selectedAddons.trim() !== '') {
                             parsedAddons = JSON.parse(booking.selectedAddons);
                           }
+                          if (booking.selectedAddons && typeof booking.selectedAddons === 'string') {
+                            parsedQuantities = JSON.parse(booking.selectedAddons);
+                          }
                         } catch (e) {}
                         setSelectedAddons(parsedAddons);
+                        setAddonQuantities(parsedQuantities);
                       }}
                       className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg font-bold hover:bg-gray-400"
                     >
@@ -413,10 +503,11 @@ export default function ConventionBookingDetail() {
                     <div className="ml-4 mt-2 space-y-1 text-sm text-gray-600">
                       {selectedAddons.map(addonId => {
                         const addon = allAddonServices.find(s => s.id === addonId);
+                        const quantity = addonQuantities[addonId] || 1;
                         return addon ? (
                           <div key={addonId} className="flex justify-between">
-                            <span>• {addon.name}</span>
-                            <span>৳{addon.price.toLocaleString()}</span>
+                            <span>• {addon.name} {quantity > 1 ? `(×${quantity})` : ''}</span>
+                            <span>৳{(addon.price * quantity).toLocaleString()}</span>
                           </div>
                         ) : null;
                       })}
@@ -495,6 +586,43 @@ export default function ConventionBookingDetail() {
                 ) : (
                   <div className={`mt-2 px-4 py-2 rounded-lg border-2 font-bold text-center ${getPaymentStatusColor(booking.paymentStatus)}`}>
                     {booking.paymentStatus.toUpperCase()}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-gray-600">Program Status</label>
+                {editing ? (
+                  <select
+                    value={formData.programStatus}
+                    onChange={(e) => setFormData({ ...formData, programStatus: e.target.value })}
+                    className="w-full mt-2 px-4 py-2 border-2 rounded-lg focus:ring-2 focus:ring-purple-600"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="running">Running</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                ) : (
+                  <div>
+                    <div className={`mt-2 px-4 py-2 rounded-lg border-2 font-bold text-center ${getProgramStatusColor(booking.programStatus || 'pending')}`}>
+                      {getRealTimeProgramStatus(booking).toUpperCase()}
+                    </div>
+                    {isEventPassed(booking.eventDate, booking.timeSlot) && (
+                      <div className="mt-2 text-sm text-center">
+                        <span className="inline-block px-3 py-1 bg-orange-100 text-orange-800 rounded-full font-semibold">
+                          ⏰ Event Time Passed
+                        </span>
+                      </div>
+                    )}
+                    {booking.programStatus !== 'completed' && isEventPassed(booking.eventDate, booking.timeSlot) && (
+                      <div className="mt-2 text-sm text-center">
+                        <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full font-semibold">
+                          🔄 Will Auto-Complete
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -623,7 +751,9 @@ export default function ConventionBookingDetail() {
                     setFormData({
                       status: booking.status,
                       paymentStatus: booking.paymentStatus,
+                      programStatus: booking.programStatus || 'pending',
                       advancePayment: booking.advancePayment,
+                      discount: booking.discount || 0,
                       notes: booking.notes || '',
                     });
                   }}
@@ -643,6 +773,158 @@ export default function ConventionBookingDetail() {
           </div>
         </div>
       </div>
+
+      {/* Hidden Print Invoice */}
+      <div style={{ display: 'none' }}>
+        <div ref={invoiceRef} className="p-8 bg-white">
+          <style jsx>{`
+            @media print {
+              @page {
+                size: A4;
+                margin: 15mm;
+              }
+              body {
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+              }
+            }
+          `}</style>
+
+          {/* Invoice Header */}
+          <div className="text-center mb-6 border-b-4 border-purple-600 pb-4">
+            <h1 className="text-3xl font-bold text-purple-600">TUFAN RESORT</h1>
+            <p className="text-sm text-gray-600">Convention Hall Booking Invoice</p>
+            <p className="text-xs text-gray-500 mt-1">Phone: +880-1234-567890 | Email: info@tufanresort.com</p>
+          </div>
+
+          {/* Invoice Info */}
+          <div className="flex justify-between mb-6">
+            <div>
+              <p className="font-bold">Invoice #: {booking.id}</p>
+              <p className="text-sm">Date: {new Date().toLocaleDateString('en-GB')}</p>
+              <p className="text-sm">Booking Date: {new Date(booking.createdAt).toLocaleDateString('en-GB')}</p>
+            </div>
+            <div className="text-right">
+              <p className="font-bold">Status: {booking.status.toUpperCase()}</p>
+              <p className="text-sm">Payment: {booking.paymentStatus.toUpperCase()}</p>
+            </div>
+          </div>
+
+          {/* Customer Info */}
+          <div className="mb-6">
+            <h3 className="font-bold text-lg mb-2 border-b border-gray-300">Customer Information</h3>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+              <div><strong>Name:</strong> {booking.customerName}</div>
+              <div><strong>Organization:</strong> {booking.organizationName || 'N/A'}</div>
+              <div><strong>Phone:</strong> {booking.customerPhone}</div>
+              <div><strong>Email:</strong> {booking.customerEmail || 'N/A'}</div>
+              <div className="col-span-2"><strong>Address:</strong> {booking.customerAddress || 'N/A'}</div>
+            </div>
+          </div>
+
+          {/* Event Details */}
+          <div className="mb-6">
+            <h3 className="font-bold text-lg mb-2 border-b border-gray-300">Event Details</h3>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+              <div><strong>Hall:</strong> {booking.hall?.name || `Hall ${booking.hallId}`}</div>
+              <div><strong>Event Type:</strong> {booking.eventType}</div>
+              <div><strong>Event Date:</strong> {new Date(booking.eventDate).toLocaleDateString('en-GB')}</div>
+              <div><strong>Time Slot:</strong> {booking.timeSlot}</div>
+              <div><strong>Number of Guests:</strong> {booking.numberOfGuests}</div>
+              <div><strong>Hall Capacity:</strong> {booking.hall?.maxCapacity || 'N/A'}</div>
+            </div>
+          </div>
+
+          {/* Invoice Table */}
+          <table className="w-full mb-6 border-collapse">
+            <thead>
+              <tr className="bg-purple-600 text-white">
+                <th className="border border-gray-300 px-4 py-2 text-left">Description</th>
+                <th className="border border-gray-300 px-4 py-2 text-right">Amount (৳)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-gray-300 px-4 py-2">Hall Rent</td>
+                <td className="border border-gray-300 px-4 py-2 text-right">৳{Number(booking.hallRent).toLocaleString('en-BD')}</td>
+              </tr>
+              <tr>
+                <td className="border border-gray-300 px-4 py-2">Food Cost ({booking.numberOfGuests} guests)</td>
+                <td className="border border-gray-300 px-4 py-2 text-right">৳{Number(booking.foodCost).toLocaleString('en-BD')}</td>
+              </tr>
+              {selectedAddons.length > 0 && selectedAddons.map(addonId => {
+                const addon = allAddonServices.find(s => s.id === addonId);
+                const quantity = addonQuantities[addonId] || 1;
+                return addon ? (
+                  <tr key={addonId}>
+                    <td className="border border-gray-300 px-4 py-2">
+                      {addon.name} {quantity > 1 ? `(×${quantity})` : ''}
+                    </td>
+                    <td className="border border-gray-300 px-4 py-2 text-right">৳{(addon.price * quantity).toLocaleString('en-BD')}</td>
+                  </tr>
+                ) : null;
+              })}
+              <tr>
+                <td className="border border-gray-300 px-4 py-2 font-bold">Subtotal</td>
+                <td className="border border-gray-300 px-4 py-2 text-right font-bold">
+                  ৳{(Number(booking.hallRent) + Number(booking.foodCost) + Number(booking.addonsCost)).toLocaleString('en-BD')}
+                </td>
+              </tr>
+              {booking.discount > 0 && (
+                <tr className="text-red-600">
+                  <td className="border border-gray-300 px-4 py-2">Discount</td>
+                  <td className="border border-gray-300 px-4 py-2 text-right">-৳{Number(booking.discount).toLocaleString('en-BD')}</td>
+                </tr>
+              )}
+              <tr className="bg-purple-100">
+                <td className="border border-gray-300 px-4 py-2 font-bold text-lg">TOTAL</td>
+                <td className="border border-gray-300 px-4 py-2 text-right font-bold text-lg">৳{Number(booking.totalAmount).toLocaleString('en-BD')}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* Payment Summary */}
+          <div className="mb-6 border-t-2 border-gray-300 pt-4">
+            <div className="flex justify-between text-sm mb-2">
+              <span>Advance Payment:</span>
+              <span className="font-bold text-green-600">৳{Number(booking.advancePayment).toLocaleString('en-BD')}</span>
+            </div>
+            <div className="flex justify-between text-sm mb-2">
+              <span>Remaining Payment:</span>
+              <span className="font-bold text-red-600">৳{Number(booking.remainingPayment || booking.totalAmount - booking.advancePayment).toLocaleString('en-BD')}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span>Payment Method:</span>
+              <span className="capitalize">{booking.paymentMethod}</span>
+            </div>
+          </div>
+
+          {/* Notes */}
+          {booking.notes && (
+            <div className="mb-6">
+              <h3 className="font-bold text-sm mb-2">Notes:</h3>
+              <p className="text-sm text-gray-700">{booking.notes}</p>
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="text-center mt-8 pt-4 border-t border-gray-300">
+            <p className="text-xs text-gray-600">Thank you for choosing Tufan Resort!</p>
+            <p className="text-xs text-gray-500 mt-1">This is a computer-generated invoice.</p>
+          </div>
+        </div>
+      </div>
+
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={closeModal}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        onConfirm={modalState.onConfirm}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+      />
     </div>
   );
 }

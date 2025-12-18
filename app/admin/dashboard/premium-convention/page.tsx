@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { api, conventionBookingsAPI } from '@/lib/api';
+import Modal from '@/components/Modal';
+import { useModal } from '@/hooks/useModal';
 
 interface FoodPackage {
   id: number;
@@ -20,11 +22,16 @@ interface AddonService {
 }
 
 export default function PremiumConventionBooking() {
+  const { modalState, showModal, closeModal } = useModal();
   const [step, setStep] = useState(1);
   const [halls, setHalls] = useState<any[]>([]);
   const [foodPackages, setFoodPackages] = useState<FoodPackage[]>([]);
   const [addonServices, setAddonServices] = useState<AddonService[]>([]);
   const [selectedAddons, setSelectedAddons] = useState<number[]>([]);
+  const [availability, setAvailability] = useState<any>(null);
+  const [showManualTime, setShowManualTime] = useState(false);
+  const [foodPackageQuantity, setFoodPackageQuantity] = useState(1);
+  const [addonQuantities, setAddonQuantities] = useState<Record<number, number>>({});
   
   const [formData, setFormData] = useState({
     hallId: '',
@@ -36,14 +43,24 @@ export default function PremiumConventionBooking() {
     eventDescription: '',
     eventDate: '',
     timeSlot: 'morning',
+    customStartTime: '',
+    customEndTime: '',
     numberOfGuests: 50,
     
     foodPackageId: '',
+    foodPackageQuantity: 1,
     foodCost: 0,
     selectedAddons: [] as number[],
+    addonQuantities: {} as Record<number, number>,
     addonsCost: 0,
     hallRent: 0,
+    discountType: 'none' as 'none' | 'percentage' | 'flat',
+    discountPercentage: 0,
+    discountAmount: 0,
     discount: 0,
+    vatEnabled: false,
+    vatPercentage: 15,
+    vatAmount: 0,
     totalAmount: 0,
     advancePayment: 0,
     paymentMethod: 'cash',
@@ -71,6 +88,25 @@ export default function PremiumConventionBooking() {
     }
   };
 
+  const checkAvailability = async () => {
+    if (!formData.hallId || !formData.eventDate || !formData.timeSlot) {
+      showModal('Please select Hall, Event Date, and Time Slot first', 'warning');
+      return;
+    }
+
+    try {
+      const response = await conventionBookingsAPI.checkAvailability(
+        Number(formData.hallId),
+        formData.eventDate,
+        formData.timeSlot
+      );
+      setAvailability(response.data);
+    } catch (error: any) {
+      console.error('Error checking availability:', error);
+      showModal('Error checking availability: ' + (error.response?.data?.message || error.message || 'Unknown error'), 'error');
+    }
+  };
+
   const handleHallSelect = (hallId: string) => {
     const hall = halls.find(h => h.id === Number(hallId));
     if (hall) {
@@ -82,64 +118,128 @@ export default function PremiumConventionBooking() {
   const handleFoodPackageSelect = (packageId: string) => {
     const pkg = foodPackages.find(p => p.id === Number(packageId));
     if (pkg) {
-      const foodCost = pkg.pricePerPerson * formData.numberOfGuests;
-      setFormData({ ...formData, foodPackageId: packageId || '', foodCost });
+      const foodCost = pkg.pricePerPerson * foodPackageQuantity;
+      setFormData({ ...formData, foodPackageId: packageId || '', foodPackageQuantity, foodCost });
       setTimeout(calculateTotal, 100);
     } else {
-      setFormData({ ...formData, foodPackageId: '', foodCost: 0 });
+      setFormData({ ...formData, foodPackageId: '', foodPackageQuantity: 1, foodCost: 0 });
+      setFoodPackageQuantity(1);
       setTimeout(calculateTotal, 100);
+    }
+  };
+
+  const handleFoodQuantityChange = (quantity: number) => {
+    setFoodPackageQuantity(quantity);
+    if (formData.foodPackageId) {
+      const pkg = foodPackages.find(p => p.id === Number(formData.foodPackageId));
+      if (pkg) {
+        const foodCost = pkg.pricePerPerson * quantity;
+        setFormData({ ...formData, foodPackageQuantity: quantity, foodCost });
+        setTimeout(calculateTotal, 100);
+      }
     }
   };
 
   const handleAddonToggle = (serviceId: number) => {
     let newSelectedAddons;
+    let newQuantities = { ...addonQuantities };
+    
     if (selectedAddons.includes(serviceId)) {
       newSelectedAddons = selectedAddons.filter(id => id !== serviceId);
+      delete newQuantities[serviceId];
     } else {
       newSelectedAddons = [...selectedAddons, serviceId];
+      newQuantities[serviceId] = 1; // Default quantity
     }
     setSelectedAddons(newSelectedAddons);
+    setAddonQuantities(newQuantities);
     
-    // Calculate addon cost
+    // Calculate addon cost with quantities
     const addonCost = newSelectedAddons.reduce((sum, id) => {
       const service = addonServices.find(s => s.id === id);
-      return sum + (service?.price || 0);
+      const quantity = newQuantities[id] || 1;
+      return sum + ((service?.price || 0) * quantity);
     }, 0);
     
     setFormData(prev => ({ 
       ...prev, 
-      selectedAddons: newSelectedAddons, 
+      selectedAddons: newSelectedAddons,
+      addonQuantities: newQuantities,
       addonsCost: addonCost 
     }));
     setTimeout(calculateTotal, 100);
   };
 
+  const handleAddonQuantityChange = (serviceId: number, quantity: number) => {
+    const newQuantities = { ...addonQuantities, [serviceId]: quantity };
+    setAddonQuantities(newQuantities);
+    
+    // Recalculate addon cost
+    const addonCost = selectedAddons.reduce((sum, id) => {
+      const service = addonServices.find(s => s.id === id);
+      const qty = newQuantities[id] || 1;
+      return sum + ((service?.price || 0) * qty);
+    }, 0);
+    
+    setFormData(prev => ({ 
+      ...prev,
+      addonQuantities: newQuantities,
+      addonsCost: addonCost 
+    }));
+    setTimeout(calculateTotal, 100);
+  };
+
+  const calculateDiscountAmount = (): number => {
+    const subtotal = Number(formData.hallRent) + Number(formData.foodCost) + Number(formData.addonsCost);
+    if (formData.discountType === 'percentage') {
+      return (subtotal * Number(formData.discountPercentage)) / 100;
+    } else if (formData.discountType === 'flat') {
+      return Number(formData.discountAmount);
+    }
+    return 0;
+  };
+
+  const calculateSubtotal = (): number => {
+    return Number(formData.hallRent) + Number(formData.foodCost) + Number(formData.addonsCost);
+  };
+
   const calculateTotal = () => {
-    const total = formData.hallRent + formData.foodCost + formData.addonsCost - formData.discount;
-    setFormData(prev => ({ ...prev, totalAmount: total }));
+    const subtotal = calculateSubtotal();
+    const discount = calculateDiscountAmount();
+    const afterDiscount = Number(subtotal) - Number(discount);
+    const vatAmount = formData.vatEnabled ? (Number(afterDiscount) * Number(formData.vatPercentage) / 100) : 0;
+    const total = Number(afterDiscount) + Number(vatAmount);
+    setFormData(prev => ({ ...prev, discount: Number(discount), vatAmount: Number(vatAmount), totalAmount: Number(total) }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Prepare submission data with selected addons as JSON array
+    // Prepare submission data with selected addons and quantities as JSON
     const submissionData = {
       ...formData,
       foodPackageId: formData.foodPackageId ? Number(formData.foodPackageId) : null,
+      foodPackageQuantity: foodPackageQuantity,
       selectedAddons: JSON.stringify(selectedAddons), // Convert to JSON string for backend
+      addonQuantities: JSON.stringify(addonQuantities), // Store quantities
     };
     
     console.log('Submitting convention booking:', submissionData);
     console.log('Selected addons:', selectedAddons);
+    console.log('Addon quantities:', addonQuantities);
+    console.log('Food package quantity:', foodPackageQuantity);
     console.log('Addons cost:', formData.addonsCost);
     
     try {
       await conventionBookingsAPI.create(submissionData);
-      alert('Convention booking created successfully!');
-      window.location.href = '/admin/dashboard/bookings';
+      showModal('Convention booking created successfully!', 'success', {
+        onConfirm: () => {
+          window.location.href = '/admin/dashboard/convention-bookings';
+        }
+      });
     } catch (error) {
       console.error('Error creating convention booking:', error);
-      alert('Failed to create booking');
+      showModal('Failed to create booking. Please try again.', 'error');
     }
   };
 
@@ -280,16 +380,47 @@ export default function PremiumConventionBooking() {
                   <label className="block text-gray-700 font-semibold mb-2">Time Slot *</label>
                   <select
                     value={formData.timeSlot}
-                    onChange={(e) => setFormData({ ...formData, timeSlot: e.target.value })}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData({ ...formData, timeSlot: value });
+                      setShowManualTime(value === 'custom');
+                    }}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600"
                     required
                   >
-                    <option value="morning">Morning (8 AM - 12 PM)</option>
-                    <option value="afternoon">Afternoon (12 PM - 5 PM)</option>
-                    <option value="evening">Evening (5 PM - 10 PM)</option>
-                    <option value="fullday">Full Day</option>
+                    <option value="morning">🌅 Morning (8 AM - 12 PM)</option>
+                    <option value="afternoon">☀️ Afternoon (12 PM - 5 PM)</option>
+                    <option value="evening">🌆 Evening (5 PM - 10 PM)</option>
+                    <option value="fullday">⏰ Full Day (8 AM - 10 PM)</option>
+                    <option value="custom">⏱️ Custom Time (Manual Entry)</option>
                   </select>
                 </div>
+
+                {showManualTime && (
+                  <>
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-2">Start Time *</label>
+                      <input
+                        type="time"
+                        value={formData.customStartTime}
+                        onChange={(e) => setFormData({ ...formData, customStartTime: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600"
+                        required={showManualTime}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-2">End Time *</label>
+                      <input
+                        type="time"
+                        value={formData.customEndTime}
+                        onChange={(e) => setFormData({ ...formData, customEndTime: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600"
+                        required={showManualTime}
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">Number of Guests *</label>
@@ -319,14 +450,60 @@ export default function PremiumConventionBooking() {
                   placeholder="Describe your event..."
                 />
               </div>
+
+              {/* Availability Check */}
+              {formData.hallId && formData.eventDate && formData.timeSlot && (
+                <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-6">
+                  <button
+                    type="button"
+                    onClick={checkAvailability}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-lg font-bold shadow-lg"
+                  >
+                    🔍 Check Availability
+                  </button>
+                  
+                  {availability && (
+                    <div className={`mt-4 p-4 rounded-lg ${
+                      availability.available 
+                        ? 'bg-green-100 border-2 border-green-500 text-green-800' 
+                        : 'bg-red-100 border-2 border-red-500 text-red-800'
+                    }`}>
+                      <div className="flex items-center gap-3 text-lg font-bold">
+                        {availability.available ? '✅' : '❌'}
+                        <span>
+                          {availability.available 
+                            ? `${availability.hall.name} is AVAILABLE!` 
+                            : `${availability.hall.name} is NOT AVAILABLE`
+                          }
+                        </span>
+                      </div>
+                      <div className="mt-2 text-sm">
+                        Date: {new Date(formData.eventDate).toLocaleDateString('en-GB')} | 
+                        Time: {formData.timeSlot === 'custom' 
+                          ? `${formData.customStartTime} - ${formData.customEndTime}` 
+                          : formData.timeSlot
+                        }
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <button
               type="button"
               onClick={() => setStep(2)}
-              className="w-full mt-6 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-4 rounded-lg font-bold hover:shadow-lg"
+              disabled={!availability?.available}
+              className={`w-full mt-6 px-6 py-4 rounded-lg font-bold ${
+                availability?.available 
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:shadow-lg cursor-pointer' 
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
             >
-              Next: Food & Services →
+              {availability?.available 
+                ? 'Next: Food & Services →' 
+                : 'Check Availability First'
+              }
             </button>
           </div>
         )}
@@ -357,8 +534,21 @@ export default function PremiumConventionBooking() {
                       {pkg.items.slice(0, 3).join(', ')}...
                     </div>
                     {formData.foodPackageId === pkg.id.toString() && (
-                      <div className="mt-3 text-green-600 font-bold">
-                        ✓ Total: ৳{formData.foodCost.toLocaleString()}
+                      <div className="mt-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <label className="text-sm font-semibold">Qty:</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={foodPackageQuantity}
+                            onChange={(e) => handleFoodQuantityChange(Number(e.target.value))}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-20 px-2 py-1 border-2 border-purple-300 rounded focus:ring-2 focus:ring-purple-600"
+                          />
+                        </div>
+                        <div className="text-green-600 font-bold">
+                          ✓ Total: ৳{formData.foodCost.toLocaleString()}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -408,6 +598,22 @@ export default function PremiumConventionBooking() {
                           </div>
                           <p className="text-sm text-gray-600 mb-2">{service.description}</p>
                           <p className="text-lg font-bold text-purple-600">৳{service.price.toLocaleString()}</p>
+                          {selectedAddons.includes(service.id) && (
+                            <div className="mt-3 flex items-center gap-2">
+                              <label className="text-sm font-semibold">Qty:</label>
+                              <input
+                                type="number"
+                                min="1"
+                                value={addonQuantities[service.id] || 1}
+                                onChange={(e) => handleAddonQuantityChange(service.id, Number(e.target.value))}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-20 px-2 py-1 border-2 border-purple-300 rounded focus:ring-2 focus:ring-purple-600"
+                              />
+                              <span className="text-sm font-bold text-green-600">
+                                = ৳{(service.price * (addonQuantities[service.id] || 1)).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -425,7 +631,7 @@ export default function PremiumConventionBooking() {
                   <span className="font-bold">৳{formData.hallRent.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Food ({formData.numberOfGuests} guests):</span>
+                  <span>Food Package (Qty: {foodPackageQuantity}):</span>
                   <span className="font-bold">৳{formData.foodCost.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
@@ -434,7 +640,7 @@ export default function PremiumConventionBooking() {
                 </div>
                 <div className="flex justify-between text-xl font-bold text-purple-600 border-t-2 pt-2 mt-2">
                   <span>Subtotal:</span>
-                  <span>৳{(formData.hallRent + formData.foodCost + formData.addonsCost).toLocaleString()}</span>
+                  <span>৳{(Number(formData.hallRent) + Number(formData.foodCost) + Number(formData.addonsCost)).toLocaleString()}</span>
                 </div>
               </div>
             </div>
@@ -494,12 +700,20 @@ export default function PremiumConventionBooking() {
                 )}
                 <div className="flex justify-between text-lg border-t-2 pt-2">
                   <span>Subtotal:</span>
-                  <span className="font-bold">৳{(formData.hallRent + formData.foodCost + formData.addonsCost).toLocaleString()}</span>
+                  <span className="font-bold">৳{calculateSubtotal().toLocaleString('en-BD')}</span>
                 </div>
-                <div className="flex justify-between text-red-600">
-                  <span>Discount:</span>
-                  <span className="font-bold">-৳{formData.discount.toLocaleString()}</span>
-                </div>
+                {calculateDiscountAmount() > 0 && (
+                  <div className="flex justify-between text-red-600">
+                    <span>Discount ({formData.discountType === 'percentage' ? `${formData.discountPercentage}%` : 'Flat'}):</span>
+                    <span className="font-bold">-৳{calculateDiscountAmount().toLocaleString()}</span>
+                  </div>
+                )}
+                {formData.vatEnabled && (
+                  <div className="flex justify-between text-orange-600">
+                    <span>VAT ({formData.vatPercentage}%):</span>
+                    <span className="font-bold">+৳{formData.vatAmount.toLocaleString()}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-2xl font-bold text-purple-600 border-t-2 pt-2">
                   <span>TOTAL:</span>
                   <span>৳{formData.totalAmount.toLocaleString()}</span>
@@ -516,18 +730,107 @@ export default function PremiumConventionBooking() {
             </div>
 
             <div className="space-y-6">
-              <div>
-                <label className="block text-gray-700 font-semibold mb-2">Discount (৳)</label>
-                <input
-                  type="number"
-                  value={formData.discount}
-                  onChange={(e) => {
-                    setFormData({ ...formData, discount: Number(e.target.value) });
-                    setTimeout(calculateTotal, 100);
-                  }}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600"
-                  min="0"
-                />
+              {/* Discount Section */}
+              <div className="bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-300 rounded-xl p-6">
+                <h3 className="font-bold text-lg mb-4 text-red-700 flex items-center gap-2">
+                  🎁 Discount Options
+                </h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-gray-700 font-semibold mb-2">Discount Type</label>
+                    <select
+                      value={formData.discountType}
+                      onChange={(e) => {
+                        setFormData({ ...formData, discountType: e.target.value as 'none' | 'percentage' | 'flat', discountPercentage: 0, discountAmount: 0 });
+                        setTimeout(calculateTotal, 100);
+                      }}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                    >
+                      <option value="none">No Discount</option>
+                      <option value="percentage">Percentage Discount (%)</option>
+                      <option value="flat">Flat/Fixed Discount (৳)</option>
+                    </select>
+                  </div>
+
+                  {formData.discountType === 'percentage' && (
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-2">Discount Percentage (%)</label>
+                      <input
+                        type="number"
+                        value={formData.discountPercentage}
+                        onChange={(e) => {
+                          setFormData({ ...formData, discountPercentage: Number(e.target.value) });
+                          setTimeout(calculateTotal, 100);
+                        }}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        placeholder="e.g., 10 for 10% off"
+                      />
+                      {formData.discountPercentage > 0 && (
+                        <p className="text-sm text-red-600 mt-2">
+                          Discount Amount: ৳{calculateDiscountAmount().toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {formData.discountType === 'flat' && (
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-2">Fixed Discount Amount (৳)</label>
+                      <input
+                        type="number"
+                        value={formData.discountAmount}
+                        onChange={(e) => {
+                          setFormData({ ...formData, discountAmount: Number(e.target.value) });
+                          setTimeout(calculateTotal, 100);
+                        }}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                        min="0"
+                        max={calculateSubtotal()}
+                        placeholder="e.g., 500 for ৳500 off"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* VAT/Tax Section */}
+              <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.vatEnabled}
+                      onChange={(e) => {
+                        const vatEnabled = e.target.checked;
+                        setFormData({ ...formData, vatEnabled });
+                        setTimeout(calculateTotal, 100);
+                      }}
+                      className="mr-3 w-5 h-5"
+                    />
+                    <span className="text-lg font-semibold text-gray-800">📊 Include VAT/Tax ({formData.vatPercentage}%)</span>
+                  </label>
+                </div>
+                
+                {formData.vatEnabled && (
+                  <div className="bg-white rounded-lg p-4 space-y-2">
+                    <div className="flex justify-between text-gray-700">
+                      <span>After Discount:</span>
+                      <span className="font-semibold">৳{(calculateSubtotal() - calculateDiscountAmount()).toLocaleString('en-BD')}</span>
+                    </div>
+                    <div className="flex justify-between text-orange-600">
+                      <span>VAT ({formData.vatPercentage}%):</span>
+                      <span className="font-semibold">৳{formData.vatAmount.toLocaleString('en-BD')}</span>
+                    </div>
+                    <div className="border-t-2 border-gray-300 pt-2 flex justify-between text-green-700 text-lg font-bold">
+                      <span>With VAT:</span>
+                      <span>৳{formData.totalAmount.toLocaleString('en-BD')}</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -576,6 +879,17 @@ export default function PremiumConventionBooking() {
           </div>
         )}
       </form>
+
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={closeModal}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        onConfirm={modalState.onConfirm}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+      />
     </div>
   );
 }

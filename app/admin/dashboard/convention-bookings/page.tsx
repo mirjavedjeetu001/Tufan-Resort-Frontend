@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
+import Modal from '@/components/Modal';
+import { useModal } from '@/hooks/useModal';
+import { getRealTimeProgramStatus, getRealTimePaymentStatus, formatPaymentDue, isEventPassed } from '@/utils/bookingStatus';
 
 interface ConventionBooking {
   id: number;
@@ -20,9 +23,11 @@ interface ConventionBooking {
   remainingPayment: number;
   paymentStatus: string;
   status: string;
+  programStatus: string;
 }
 
 export default function ConventionBookingsList() {
+  const { modalState, showModal, closeModal } = useModal();
   const [bookings, setBookings] = useState<ConventionBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');
@@ -37,20 +42,31 @@ export default function ConventionBookingsList() {
       setBookings(response.data);
     } catch (error) {
       console.error('Error fetching convention bookings:', error);
+      showModal('Error fetching convention bookings', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm('Are you sure you want to delete this booking?')) {
-      try {
-        await api.delete(`/convention-bookings/${id}`);
-        fetchBookings();
-      } catch (error) {
-        console.error('Error deleting booking:', error);
+    showModal(
+      'Are you sure you want to delete this convention booking? This action cannot be undone.',
+      'warning',
+      {
+        onConfirm: async () => {
+          try {
+            await api.delete(`/convention-bookings/${id}`);
+            fetchBookings();
+            showModal('Convention booking deleted successfully!', 'success');
+          } catch (error) {
+            console.error('Error deleting booking:', error);
+            showModal('Error deleting convention booking', 'error');
+          }
+        },
+        confirmText: 'Delete',
+        cancelText: 'Cancel'
       }
-    }
+    );
   };
 
   const getStatusColor = (status: string) => {
@@ -68,6 +84,17 @@ export default function ConventionBookingsList() {
       pending: 'bg-red-100 text-red-800',
       partial: 'bg-yellow-100 text-yellow-800',
       paid: 'bg-green-100 text-green-800',
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getProgramStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      pending: 'bg-gray-100 text-gray-800',
+      confirmed: 'bg-blue-100 text-blue-800',
+      running: 'bg-orange-100 text-orange-800',
+      completed: 'bg-green-100 text-green-800',
+      cancelled: 'bg-red-100 text-red-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
@@ -141,26 +168,27 @@ export default function ConventionBookingsList() {
       {/* Bookings Table */}
       <div className="bg-white rounded-xl shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[1400px]">
             <thead className="bg-purple-600 text-white">
               <tr>
-                <th className="px-6 py-4 text-left">ID</th>
-                <th className="px-6 py-4 text-left">Hall</th>
-                <th className="px-6 py-4 text-left">Customer</th>
-                <th className="px-6 py-4 text-left">Organization</th>
-                <th className="px-6 py-4 text-left">Event Date</th>
-                <th className="px-6 py-4 text-left">Event Type</th>
-                <th className="px-6 py-4 text-left">Guests</th>
-                <th className="px-6 py-4 text-left">Total</th>
-                <th className="px-6 py-4 text-left">Payment</th>
-                <th className="px-6 py-4 text-left">Status</th>
-                <th className="px-6 py-4 text-left">Actions</th>
+                <th className="px-6 py-4 text-left whitespace-nowrap">ID</th>
+                <th className="px-6 py-4 text-left whitespace-nowrap">Hall</th>
+                <th className="px-6 py-4 text-left whitespace-nowrap">Customer</th>
+                <th className="px-6 py-4 text-left whitespace-nowrap">Organization</th>
+                <th className="px-6 py-4 text-left whitespace-nowrap">Event Date</th>
+                <th className="px-6 py-4 text-left whitespace-nowrap">Event Type</th>
+                <th className="px-6 py-4 text-left whitespace-nowrap">Guests</th>
+                <th className="px-6 py-4 text-left whitespace-nowrap">Total</th>
+                <th className="px-6 py-4 text-left whitespace-nowrap">Payment</th>
+                <th className="px-6 py-4 text-left whitespace-nowrap">Booking Status</th>
+                <th className="px-6 py-4 text-left whitespace-nowrap">Program Status</th>
+                <th className="px-6 py-4 text-left whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredBookings.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={12} className="px-6 py-12 text-center text-gray-500">
                     No convention bookings found
                   </td>
                 </tr>
@@ -179,6 +207,9 @@ export default function ConventionBookingsList() {
                         {new Date(booking.eventDate).toLocaleDateString()}
                       </div>
                       <div className="text-sm text-gray-500 capitalize">{booking.timeSlot}</div>
+                      {isEventPassed(booking.eventDate, booking.timeSlot) && (
+                        <div className="text-xs text-blue-600 font-semibold mt-1">⏰ Event Passed</div>
+                      )}
                     </td>
                     <td className="px-6 py-4 capitalize">{booking.eventType}</td>
                     <td className="px-6 py-4 text-center">{booking.numberOfGuests}</td>
@@ -189,19 +220,50 @@ export default function ConventionBookingsList() {
                       <div className="text-xs text-gray-500">
                         Paid: ৳{Number(booking.advancePayment).toLocaleString()}
                       </div>
-                      <div className="text-xs text-red-600">
-                        Due: ৳{Number(booking.remainingPayment || 0).toLocaleString()}
-                      </div>
+                      {Number(booking.remainingPayment || 0) > 0 ? (
+                        <div className="text-xs font-bold">
+                          <span className="text-red-600 bg-red-50 px-2 py-0.5 rounded">
+                            DUE: ৳{Number(booking.remainingPayment).toLocaleString()}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-green-600 font-semibold">✓ Fully Paid</div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPaymentStatusColor(booking.paymentStatus)}`}>
-                        {booking.paymentStatus}
-                      </span>
+                      {(() => {
+                        const paymentInfo = getRealTimePaymentStatus(booking);
+                        return (
+                          <div>
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPaymentStatusColor(paymentInfo.status)}`}>
+                              {paymentInfo.displayText}
+                            </span>
+                            {paymentInfo.isDue && (
+                              <div className="text-xs text-red-600 font-bold mt-1">⚠️ PAYMENT DUE</div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(booking.status)}`}>
                         {booking.status}
                       </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {(() => {
+                        const realStatus = getRealTimeProgramStatus(booking);
+                        return (
+                          <div>
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getProgramStatusColor(realStatus)}`}>
+                              {realStatus}
+                            </span>
+                            {realStatus === 'completed' && booking.programStatus !== 'completed' && (
+                              <div className="text-xs text-blue-600 mt-1">🔄 Auto-completed</div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
@@ -226,6 +288,17 @@ export default function ConventionBookingsList() {
           </table>
         </div>
       </div>
+
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={closeModal}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        onConfirm={modalState.onConfirm}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+      />
     </div>
   );
 }

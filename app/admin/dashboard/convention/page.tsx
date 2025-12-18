@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
+import Modal from '@/components/Modal';
+import { useModal } from '@/hooks/useModal';
 
 interface ConventionHall {
   id: number;
@@ -15,6 +17,7 @@ interface ConventionHall {
 }
 
 export default function ConventionManagement() {
+  const { modalState, showModal: showNotification, closeModal: closeNotificationModal } = useModal();
   const [halls, setHalls] = useState<ConventionHall[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -82,7 +85,7 @@ export default function ConventionManagement() {
       closeModal();
     } catch (error) {
       console.error('Error saving hall:', error);
-      alert('Error saving convention hall. Please try again.');
+      showModal('Error saving convention hall. Please try again.', 'error');
     }
   };
 
@@ -319,7 +322,7 @@ export default function ConventionManagement() {
                 
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">
-                    Price per Day (₹) *
+                    Price per Day (৳) *
                   </label>
                   <input
                     type="number"
@@ -417,6 +420,17 @@ export default function ConventionManagement() {
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={closeNotificationModal}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        onConfirm={modalState.onConfirm}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+      />
     </div>
   );
 }

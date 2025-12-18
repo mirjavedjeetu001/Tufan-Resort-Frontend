@@ -3,8 +3,11 @@ import { useEffect, useState } from 'react';
 import { bookingsAPI, roomsAPI, api, conventionBookingsAPI } from '@/lib/api';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Modal from '@/components/Modal';
+import { useModal } from '@/hooks/useModal';
 
 export default function AdminDashboard() {
+  const { modalState, showModal, closeModal } = useModal();
   const [metrics, setMetrics] = useState<any>(null);
   const [rooms, setRooms] = useState([]);
   const [recentBookings, setRecentBookings] = useState([]);
@@ -46,7 +49,7 @@ export default function AdminDashboard() {
 
   const searchRoomAvailability = async () => {
     if (!roomSearchDates.checkIn || !roomSearchDates.checkOut) {
-      alert('Please select both check-in and check-out dates');
+      showModal('Please select both check-in and check-out dates', 'warning');
       return;
     }
     
@@ -63,13 +66,13 @@ export default function AdminDashboard() {
       setShowRoomResults(true);
     } catch (error) {
       console.error('Error searching room availability:', error);
-      alert('Error searching room availability');
+      showModal('Error searching room availability', 'error');
     }
   };
 
   const searchHallAvailability = async () => {
     if (!hallSearchDate) {
-      alert('Please select a date');
+      showModal('Please select a date', 'warning');
       return;
     }
     
@@ -79,7 +82,7 @@ export default function AdminDashboard() {
       setShowHallResults(true);
     } catch (error) {
       console.error('Error searching hall availability:', error);
-      alert('Error searching hall availability');
+      showModal('Error searching hall availability', 'error');
     }
   };
 
@@ -173,6 +176,57 @@ export default function AdminDashboard() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Reports Section */}
+        <div className="grid md:grid-cols-2 gap-6">
+          <Link href="/admin/dashboard/reports/room-bookings">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-500 to-green-600 text-white shadow-xl p-6 border border-white/10 transition-all duration-200 hover:-translate-y-1 hover:shadow-2xl cursor-pointer group">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.2),transparent_50%)]" aria-hidden />
+              <div className="relative flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-4xl">📊</span>
+                    <h3 className="text-2xl font-bold">Room Bookings Report</h3>
+                  </div>
+                  <p className="text-white/90 text-sm mb-4">
+                    View comprehensive room booking analytics with filters, statistics, and export options
+                  </p>
+                  <div className="flex gap-2 flex-wrap">
+                    <span className="px-3 py-1 rounded-full bg-white/20 text-xs font-semibold">Date Range Filter</span>
+                    <span className="px-3 py-1 rounded-full bg-white/20 text-xs font-semibold">Status Breakdown</span>
+                    <span className="px-3 py-1 rounded-full bg-white/20 text-xs font-semibold">Room-wise Stats</span>
+                    <span className="px-3 py-1 rounded-full bg-white/20 text-xs font-semibold">Print Ready</span>
+                  </div>
+                </div>
+                <div className="text-4xl group-hover:scale-110 transition-transform">→</div>
+              </div>
+            </div>
+          </Link>
+
+          <Link href="/admin/dashboard/reports/convention-bookings">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 text-white shadow-xl p-6 border border-white/10 transition-all duration-200 hover:-translate-y-1 hover:shadow-2xl cursor-pointer group">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.2),transparent_50%)]" aria-hidden />
+              <div className="relative flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-4xl">📈</span>
+                    <h3 className="text-2xl font-bold">Convention Hall Report</h3>
+                  </div>
+                  <p className="text-white/90 text-sm mb-4">
+                    View comprehensive convention hall analytics with payment tracking, program status, and insights
+                  </p>
+                  <div className="flex gap-2 flex-wrap">
+                    <span className="px-3 py-1 rounded-full bg-white/20 text-xs font-semibold">Payment Status</span>
+                    <span className="px-3 py-1 rounded-full bg-white/20 text-xs font-semibold">Program Tracking</span>
+                    <span className="px-3 py-1 rounded-full bg-white/20 text-xs font-semibold">Time Slot Analysis</span>
+                    <span className="px-3 py-1 rounded-full bg-white/20 text-xs font-semibold">Print Ready</span>
+                  </div>
+                </div>
+                <div className="text-4xl group-hover:scale-110 transition-transform">→</div>
+              </div>
+            </div>
+          </Link>
         </div>
 
       {/* Room Availability Search */}
@@ -531,6 +585,17 @@ export default function AdminDashboard() {
         )}
       </div>
       </div>
+
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={closeModal}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        onConfirm={modalState.onConfirm}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+      />
     </div>
   );
 }

@@ -6,6 +6,8 @@ import { useReactToPrint } from 'react-to-print';
 import { InvoiceTemplate } from '@/components/InvoiceTemplate';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import Modal from '@/components/Modal';
+import { useModal } from '@/hooks/useModal';
 
 interface AdditionalGuest {
   name: string;
@@ -14,6 +16,7 @@ interface AdditionalGuest {
 }
 
 export default function PremiumBookingPage() {
+  const { modalState, showModal, closeModal } = useModal();
   const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
@@ -24,6 +27,7 @@ export default function PremiumBookingPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdBooking, setCreatedBooking] = useState<any>(null);
   const invoiceRef = useRef<HTMLDivElement>(null);
+  const [vatPercentage, setVatPercentage] = useState(15); // Default 15%
   
   const [formData, setFormData] = useState({
     // Room Selection
@@ -41,6 +45,9 @@ export default function PremiumBookingPage() {
     referencePhone: '',
     customerPhoto: null as File | null,
     customerNidDocument: null as File | null,
+    passportNumber: '',
+    passportDocument: null as File | null,
+    visitingCard: null as File | null,
     
     // Dates
     checkInDate: '',
@@ -49,8 +56,13 @@ export default function PremiumBookingPage() {
     checkOutTime: '11:00',
     numberOfGuests: 1,
     
+    // Room Preferences
+    acPreference: 'ac',
+    
     // Payment
     totalAmount: 0,
+    vatEnabled: false,
+    vatAmount: 0,
     extraCharges: 0,
     extraChargesDescription: '',
     discountType: 'none' as 'none' | 'percentage' | 'flat',
@@ -58,12 +70,13 @@ export default function PremiumBookingPage() {
     discountAmount: 0,
     advancePayment: 0,
     paymentMethod: 'cash',
-    paymentStatus: 'partial',
+    paymentStatus: 'pending',
     status: 'confirmed'
   });
 
   useEffect(() => {
     fetchRooms();
+    fetchResortInfo(); // Fetch VAT settings
     
     // Pre-fill from URL params if coming from dashboard
     const roomId = searchParams.get('roomId');
@@ -82,6 +95,17 @@ export default function PremiumBookingPage() {
       fetchRoomById(roomId, checkIn, checkOut);
     }
   }, [searchParams]);
+
+  const fetchResortInfo = async () => {
+    try {
+      const response = await axios.get('http://localhost:3001/resort-info');
+      if (response.data && response.data.vatPercentage) {
+        setVatPercentage(response.data.vatPercentage);
+      }
+    } catch (error) {
+      console.error('Error fetching resort info:', error);
+    }
+  };
 
   const fetchRoomById = async (roomId: string, checkIn?: string, checkOut?: string) => {
     try {
@@ -111,7 +135,7 @@ export default function PremiumBookingPage() {
 
   const handleRoomSearch = async () => {
     if (!roomSearchQuery.trim()) {
-      alert('Please enter a room number');
+      showModal('Please enter a room number', 'warning');
       return;
     }
 
@@ -122,7 +146,7 @@ export default function PremiumBookingPage() {
       setSearchedRoom(response.data);
       setFormData({ ...formData, roomId: response.data.id, roomNumber: response.data.roomNumber });
     } catch (error) {
-      alert('Room not found');
+      showModal('Room not found', 'error');
       setSearchedRoom(null);
     }
   };
@@ -136,11 +160,14 @@ export default function PremiumBookingPage() {
       setAvailability(response.data);
       
       if (response.data.available) {
-        // Calculate total amount
+        // Calculate total amount based on AC preference
         const checkInDate = new Date(checkIn);
         const checkOutDate = new Date(checkOut);
         const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
-        const baseAmount = nights * response.data.room.pricePerNight;
+        const pricePerNight = formData.acPreference === 'ac' 
+          ? (response.data.room.acPrice || response.data.room.pricePerNight)
+          : (response.data.room.nonAcPrice || response.data.room.pricePerNight);
+        const baseAmount = nights * pricePerNight;
         setFormData(prev => ({ ...prev, totalAmount: baseAmount }));
       }
     } catch (error) {
@@ -150,7 +177,7 @@ export default function PremiumBookingPage() {
 
   const checkAvailability = async () => {
     if (!formData.roomNumber || !formData.checkInDate || !formData.checkOutDate) {
-      alert('Please select room and dates');
+      showModal('Please select room and dates', 'warning');
       return;
     }
 
@@ -161,11 +188,14 @@ export default function PremiumBookingPage() {
       setAvailability(response.data);
       
       if (response.data.available) {
-        // Calculate total amount
+        // Calculate total amount based on AC preference
         const checkIn = new Date(formData.checkInDate);
         const checkOut = new Date(formData.checkOutDate);
         const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-        const baseAmount = nights * response.data.room.pricePerNight;
+        const pricePerNight = formData.acPreference === 'ac' 
+          ? (response.data.room.acPrice || response.data.room.pricePerNight)
+          : (response.data.room.nonAcPrice || response.data.room.pricePerNight);
+        const baseAmount = nights * pricePerNight;
         setFormData({ ...formData, totalAmount: baseAmount });
       }
     } catch (error) {
@@ -193,14 +223,33 @@ export default function PremiumBookingPage() {
       }
     });
     
-    // Keep totalAmount as base amount (before discount)
-    submitData.set('totalAmount', calculateBaseAmount().toString());
+    // Keep totalAmount as base amount (before discount, after VAT)
+    const baseWithVat = formData.totalAmount + (formData.vatEnabled ? formData.vatAmount : 0);
+    submitData.set('totalAmount', baseWithVat.toString());
     // Save discount fields
     submitData.set('discountType', formData.discountType);
     submitData.set('discountPercentage', formData.discountPercentage.toString());
     submitData.set('discountAmount', formData.discountAmount.toString());
+    // Save VAT fields
+    submitData.set('vatEnabled', formData.vatEnabled.toString());
+    submitData.set('vatAmount', formData.vatAmount.toString());
+    // Save AC preference
+    submitData.set('acPreference', formData.acPreference);
     // Calculate and set remaining payment based on grand total (after discount + extra charges)
-    submitData.set('remainingPayment', calculateRemainingPayment().toString());
+    const remainingPayment = calculateRemainingPayment();
+    submitData.set('remainingPayment', remainingPayment.toString());
+    
+    // Set correct payment status based on advance payment
+    const advancePayment = Number(formData.advancePayment);
+    const grandTotal = calculateGrandTotal();
+    let paymentStatus = 'pending';
+    if (advancePayment >= grandTotal) {
+      paymentStatus = 'paid';
+    } else if (advancePayment > 0) {
+      paymentStatus = 'partial';
+    }
+    submitData.set('paymentStatus', paymentStatus);
+    
     submitData.set('numberOfGuests', (1 + additionalGuests.length).toString());
     
     // Append files
@@ -209,6 +258,12 @@ export default function PremiumBookingPage() {
     }
     if (formData.customerNidDocument) {
       submitData.append('customerNidDocument', formData.customerNidDocument);
+    }
+    if (formData.passportDocument) {
+      submitData.append('passportDocument', formData.passportDocument);
+    }
+    if (formData.visitingCard) {
+      submitData.append('visitingCard', formData.visitingCard);
     }
     
     // Append additional guests
@@ -234,7 +289,7 @@ export default function PremiumBookingPage() {
       setShowSuccessModal(true);
     } catch (error: any) {
       console.error('Error creating booking:', error);
-      alert('Failed to create booking: ' + (error.response?.data?.message || 'Please try again'));
+      showModal('Failed to create booking: ' + (error.response?.data?.message || 'Please try again'), 'error');
     }
   };
 
@@ -298,8 +353,8 @@ export default function PremiumBookingPage() {
 
   // Print invoice handler
   const handlePrintInvoice = useReactToPrint({
-    content: () => invoiceRef.current,
-    documentTitle: `Invoice-BOOKING-${createdBooking?.id.toString().padStart(5, '0')}`,
+    contentRef: invoiceRef,
+    documentTitle: createdBooking ? `Invoice-BOOKING-${createdBooking.id.toString().padStart(5, '0')}` : 'Invoice',
   });
 
   return (
@@ -429,6 +484,37 @@ export default function PremiumBookingPage() {
                 />
               </div>
             </div>
+
+            {/* AC/Non-AC Selection */}
+            {searchedRoom && searchedRoom.hasAC && (
+              <div className="mb-6">
+                <label className="block text-gray-700 font-semibold mb-2">❄️ AC Preference</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center cursor-pointer bg-blue-50 border-2 border-blue-300 rounded-lg px-6 py-3 hover:bg-blue-100 transition">
+                    <input
+                      type="radio"
+                      name="acPreference"
+                      value="ac"
+                      checked={formData.acPreference === 'ac'}
+                      onChange={(e) => setFormData({ ...formData, acPreference: e.target.value })}
+                      className="mr-3 w-5 h-5"
+                    />
+                    <span className="font-semibold">❄️ With AC (৳{searchedRoom.acPrice || searchedRoom.pricePerNight}/night)</span>
+                  </label>
+                  <label className="flex items-center cursor-pointer bg-green-50 border-2 border-green-300 rounded-lg px-6 py-3 hover:bg-green-100 transition">
+                    <input
+                      type="radio"
+                      name="acPreference"
+                      value="non-ac"
+                      checked={formData.acPreference === 'non-ac'}
+                      onChange={(e) => setFormData({ ...formData, acPreference: e.target.value })}
+                      className="mr-3 w-5 h-5"
+                    />
+                    <span className="font-semibold">🌿 Non-AC (৳{searchedRoom.nonAcPrice || searchedRoom.pricePerNight}/night)</span>
+                  </label>
+                </div>
+              </div>
+            )}
 
             {/* Check Availability Button */}
             {searchedRoom && formData.checkInDate && formData.checkOutDate && (
@@ -591,7 +677,7 @@ export default function PremiumBookingPage() {
               </div>
 
               <div>
-                <label className="block text-gray-700 font-semibold mb-2">📄 NID/Passport Document</label>
+                <label className="block text-gray-700 font-semibold mb-2">📄 NID Document</label>
                 <input
                   type="file"
                   accept="image/*,application/pdf"
@@ -599,9 +685,50 @@ export default function PremiumBookingPage() {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006747]"
                 />
                 {formData.customerNidDocument && (
-                  <p className="text-green-600 text-sm mt-1">✓ Document selected</p>
+                  <p className="text-green-600 text-sm mt-1">✓ NID Document selected</p>
                 )}
               </div>
+            </div>
+
+            {/* Passport & Visiting Card */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">🛂 Passport Number (Optional)</label>
+                <input
+                  type="text"
+                  value={formData.passportNumber}
+                  onChange={(e) => setFormData({ ...formData, passportNumber: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006747]"
+                  placeholder="Enter passport number"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">🛂 Passport Document</label>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => handleFileChange(e, 'passportDocument')}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006747]"
+                />
+                {formData.passportDocument && (
+                  <p className="text-green-600 text-sm mt-1">✓ Passport selected</p>
+                )}
+              </div>
+            </div>
+
+            {/* Visiting Card Upload */}
+            <div className="mb-6">
+              <label className="block text-gray-700 font-semibold mb-2">💼 Visiting Card (Optional)</label>
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={(e) => handleFileChange(e, 'visitingCard')}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006747]"
+              />
+              {formData.visitingCard && (
+                <p className="text-green-600 text-sm mt-1">✓ Visiting card selected</p>
+              )}
             </div>
 
             {/* Additional Guests Section */}
@@ -859,6 +986,43 @@ export default function PremiumBookingPage() {
               </div>
             </div>
 
+            {/* VAT/Tax Section */}
+            <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.vatEnabled}
+                    onChange={(e) => {
+                      const vatEnabled = e.target.checked;
+                      const baseAmount = calculateBaseAmount();
+                      const vatAmount = vatEnabled ? (baseAmount * vatPercentage / 100) : 0;
+                      setFormData({ ...formData, vatEnabled, vatAmount });
+                    }}
+                    className="mr-3 w-5 h-5"
+                  />
+                  <span className="text-lg font-semibold text-gray-800">📊 Include VAT/Tax ({vatPercentage}%)</span>
+                </label>
+              </div>
+              
+              {formData.vatEnabled && (
+                <div className="bg-white rounded-lg p-4 space-y-2">
+                  <div className="flex justify-between text-gray-700">
+                    <span>Subtotal:</span>
+                    <span className="font-semibold">৳{calculateBaseAmount().toLocaleString('en-BD')}</span>
+                  </div>
+                  <div className="flex justify-between text-orange-600">
+                    <span>VAT ({vatPercentage}%):</span>
+                    <span className="font-semibold">৳{formData.vatAmount.toLocaleString('en-BD')}</span>
+                  </div>
+                  <div className="border-t-2 border-gray-300 pt-2 flex justify-between text-green-700 text-lg font-bold">
+                    <span>Total Amount:</span>
+                    <span>৳{(calculateBaseAmount() + formData.vatAmount).toLocaleString('en-BD')}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="flex gap-3 mt-6">
               <button
                 type="button"
@@ -881,7 +1045,7 @@ export default function PremiumBookingPage() {
       {/* Success Modal with Invoice Option */}
       {showSuccessModal && createdBooking && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl transform animate-bounce">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
             <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-6 rounded-t-2xl text-center">
               <div className="text-6xl mb-4">✅</div>
               <h2 className="text-3xl font-bold mb-2">Booking Created Successfully!</h2>
@@ -956,6 +1120,17 @@ export default function PremiumBookingPage() {
       <div className="hidden">
         {createdBooking && <InvoiceTemplate ref={invoiceRef} booking={createdBooking} />}
       </div>
+
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={closeModal}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        onConfirm={modalState.onConfirm}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+      />
     </div>
   );
 }

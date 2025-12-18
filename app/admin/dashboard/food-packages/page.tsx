@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '@/lib/api';
+import Modal from '@/components/Modal';
+import { useModal } from '@/hooks/useModal';
 
 interface FoodPackage {
   id: number;
@@ -13,6 +15,7 @@ interface FoodPackage {
 }
 
 export default function FoodPackagesPage() {
+  const { modalState, showModal: showAlert, closeModal } = useModal();
   const [packages, setPackages] = useState<FoodPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -31,7 +34,7 @@ export default function FoodPackagesPage() {
 
   const fetchPackages = async () => {
     try {
-      const response = await axios.get('http://localhost:3001/food-packages');
+      const response = await api.get('/food-packages');
       setPackages(response.data);
       setLoading(false);
     } catch (error) {
@@ -42,7 +45,6 @@ export default function FoodPackagesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
     
     const packageData = {
       name: formData.name,
@@ -54,22 +56,17 @@ export default function FoodPackagesPage() {
 
     try {
       if (editingPackage) {
-        await axios.put(
-          `http://localhost:3001/food-packages/${editingPackage.id}`,
-          packageData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await api.put(`/food-packages/${editingPackage.id}`, packageData);
       } else {
-        await axios.post('http://localhost:3001/food-packages', packageData, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await api.post('/food-packages', packageData);
       }
       setShowModal(false);
       resetForm();
       fetchPackages();
+      showAlert('Success', editingPackage ? 'Food package updated successfully!' : 'Food package created successfully!', 'success');
     } catch (error) {
       console.error('Error saving food package:', error);
-      alert('Failed to save food package');
+      showAlert('Error', 'Failed to save food package. Please try again.', 'error');
     }
   };
 
@@ -85,29 +82,29 @@ export default function FoodPackagesPage() {
     setShowModal(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this food package?')) return;
-    
-    const token = localStorage.getItem('token');
-    try {
-      await axios.delete(`http://localhost:3001/food-packages/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      fetchPackages();
-    } catch (error) {
-      console.error('Error deleting food package:', error);
-      alert('Failed to delete food package');
-    }
+  const handleDelete = (id: number) => {
+    showAlert(
+      'Confirm Delete',
+      'Are you sure you want to delete this food package?',
+      'warning',
+      async () => {
+        try {
+          await api.delete(`/food-packages/${id}`);
+          fetchPackages();
+          showAlert('Success', 'Food package deleted successfully!', 'success');
+        } catch (error) {
+          console.error('Error deleting food package:', error);
+          showAlert('Error', 'Failed to delete food package. Please try again.', 'error');
+        }
+      },
+      'Delete',
+      'Cancel'
+    );
   };
 
   const handleToggleActive = async (id: number) => {
-    const token = localStorage.getItem('token');
     try {
-      await axios.put(
-        `http://localhost:3001/food-packages/${id}/toggle-active`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await api.put(`/food-packages/${id}/toggle-active`, {});
       fetchPackages();
     } catch (error) {
       console.error('Error toggling package status:', error);
@@ -348,6 +345,17 @@ export default function FoodPackagesPage() {
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={closeModal}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        onConfirm={modalState.onConfirm}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+      />
     </div>
   );
 }

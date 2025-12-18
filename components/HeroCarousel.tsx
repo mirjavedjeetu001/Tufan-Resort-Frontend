@@ -39,7 +39,7 @@ export default function HeroCarousel() {
         <div className="text-center text-white">
           <h1 className="text-5xl font-heading font-bold mb-4">Welcome to Tufan Resort</h1>
           <p className="text-xl mb-8">Discover Luxury & Tranquility</p>
-          <a href="/rooms" className="bg-accent text-dark px-8 py-3 rounded-lg font-semibold hover:bg-yellow-500 transition">
+          <a href="/rooms" className="bg-gradient-to-r from-[#f4a425] to-[#e09422] text-white px-8 py-3 rounded-lg font-bold hover:shadow-2xl hover:scale-105 transition-all shadow-lg border-2 border-white">
             Explore Rooms
           </a>
         </div>
@@ -52,15 +52,24 @@ export default function HeroCarousel() {
       <Slider {...settings}>
         {slides.map((slide: any) => (
           <div key={slide.id} className="relative h-[500px]">
-            <div className="relative h-[500px] bg-gradient-to-r from-primary to-blue-600">
+            <div className="relative h-[500px]">
+              {slide.image && (
+                <img
+                  src={`${API_URL}${slide.image}`}
+                  alt={slide.title}
+                  className="w-full h-full object-cover"
+                />
+              )}
               <div className="absolute inset-0 bg-black opacity-40"></div>
-              <div className="relative h-full flex items-center justify-center">
+              <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center text-white z-10 px-4">
                   <h1 className="text-5xl font-heading font-bold mb-4">{slide.title}</h1>
-                  {slide.description && <p className="text-xl mb-8">{slide.description}</p>}
-                  <a href="/rooms" className="bg-accent text-dark px-8 py-3 rounded-lg font-semibold hover:bg-yellow-500 transition inline-block">
-                    Explore Rooms
-                  </a>
+                  {slide.subtitle && <p className="text-xl mb-8">{slide.subtitle}</p>}
+                  {slide.buttonText && slide.buttonLink && (
+                    <a href={slide.buttonLink} className="bg-gradient-to-r from-[#f4a425] to-[#e09422] text-white px-8 py-3 rounded-lg font-bold hover:shadow-2xl hover:scale-105 transition-all inline-block shadow-lg border-2 border-white">
+                      {slide.buttonText}
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
