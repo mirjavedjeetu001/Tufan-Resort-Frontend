@@ -31,6 +31,10 @@ interface ConventionBooking {
   addonQuantities: any;
   hallRent: number;
   discount: number;
+  discountType: string;
+  discountValue: number;
+  vatAmount: number;
+  vatPercentage: number;
   totalAmount: number;
   advancePayment: number;
   remainingPayment: number;
@@ -55,6 +59,8 @@ export default function ConventionBookingDetail() {
   const [allAddonServices, setAllAddonServices] = useState<any[]>([]);
   const [selectedAddons, setSelectedAddons] = useState<number[]>([]);
   const [addonQuantities, setAddonQuantities] = useState<Record<number, number>>({});
+  const [resortVatPercentage, setResortVatPercentage] = useState(0);
+  const [vatEnabled, setVatEnabled] = useState(false);
   const [formData, setFormData] = useState({
     status: '',
     paymentStatus: '',
@@ -62,6 +68,10 @@ export default function ConventionBookingDetail() {
     advancePayment: 0,
     notes: '',
     discount: 0,
+    discountType: 'flat',
+    discountValue: 0,
+    vatPercentage: 0,
+    vatAmount: 0,
   });
   const [paymentForm, setPaymentForm] = useState({ amount: 0, method: 'cash', note: '' });
 
@@ -73,8 +83,20 @@ export default function ConventionBookingDetail() {
     if (params.id) {
       fetchBooking();
       fetchAddonServices();
+      fetchResortSettings();
     }
   }, [params.id]);
+
+  const fetchResortSettings = async () => {
+    try {
+      const response = await api.get('/resort-info');
+      if (response.data) {
+        setResortVatPercentage(response.data.vatPercentage || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching resort settings:', error);
+    }
+  };
 
   const fetchAddonServices = async () => {
     try {
@@ -120,8 +142,15 @@ export default function ConventionBookingDetail() {
         programStatus: response.data.programStatus || 'pending',
         advancePayment: response.data.advancePayment,
         discount: response.data.discount || 0,
+        discountType: response.data.discountType || 'flat',
+        discountValue: response.data.discountValue || 0,
+        vatPercentage: response.data.vatPercentage || 0,
+        vatAmount: response.data.vatAmount || 0,
         notes: response.data.notes || '',
       });
+      
+      // Set VAT enabled state based on booking data
+      setVatEnabled(response.data.vatAmount > 0 || response.data.vatPercentage > 0);
     } catch (error) {
       console.error('Error fetching booking:', error);
       showModal('Error loading booking details', 'error');
@@ -208,6 +237,50 @@ export default function ConventionBookingDetail() {
     } catch (error) {
       console.error('Error updating booking:', error);
       showModal('Error updating booking', 'error');
+    }
+  };
+
+  const handleUpdatePricing = async () => {
+    try {
+      if (!booking) return;
+      
+      // Calculate new totals
+      const subtotal = Number(booking.hallRent || 0) + Number(booking.foodCost || 0) + Number(booking.addonsCost || 0);
+      const discountAmount = formData.discountType === 'percentage' 
+        ? subtotal * (Number(formData.discountValue || 0) / 100)
+        : Number(formData.discountValue || 0);
+      const afterDiscount = subtotal - discountAmount;
+      const vatAmount = vatEnabled ? afterDiscount * (Number(formData.vatPercentage || 0) / 100) : 0;
+      const totalAmount = afterDiscount + vatAmount;
+      const remainingPayment = totalAmount - Number(booking.advancePayment || 0);
+      
+      // Auto-calculate payment status
+      let paymentStatus = 'pending';
+      if (booking.advancePayment === 0) {
+        paymentStatus = 'pending';
+      } else if (booking.advancePayment >= totalAmount) {
+        paymentStatus = 'paid';
+      } else if (booking.advancePayment > 0) {
+        paymentStatus = 'partial';
+      }
+      
+      const updateData = {
+        discountType: formData.discountType,
+        discountValue: formData.discountValue,
+        discount: discountAmount,
+        vatPercentage: vatEnabled ? formData.vatPercentage : 0,
+        vatAmount: vatAmount,
+        totalAmount: totalAmount,
+        remainingPayment: Math.max(0, remainingPayment),
+        paymentStatus: paymentStatus,
+      };
+      
+      await api.put(`/convention-bookings/${params.id}`, updateData);
+      showModal('Discount & VAT updated successfully!', 'success');
+      fetchBooking();
+    } catch (error) {
+      console.error('Error updating pricing:', error);
+      showModal('Error updating pricing', 'error');
     }
   };
 
@@ -521,25 +594,111 @@ export default function ConventionBookingDetail() {
                 <span className="text-lg font-bold">৳{(Number(booking.hallRent) + Number(booking.foodCost) + Number(booking.addonsCost)).toLocaleString()}</span>
               </div>
               
-              {(editing || booking.discount > 0) && (
-                <div className="flex justify-between items-center pb-2 border-b text-red-600">
-                  <span>Discount</span>
-                  {editing ? (
-                    <input
-                      type="number"
-                      value={formData.discount}
-                      onChange={(e) => setFormData({ ...formData, discount: Number(e.target.value) })}
-                      className="w-32 px-3 py-1 border-2 rounded text-right font-bold"
-                    />
-                  ) : (
-                    <span className="text-lg font-bold">-৳{Number(booking.discount).toLocaleString()}</span>
-                  )}
+              <div className="border-2 border-red-100 rounded-lg p-3 my-2">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-semibold text-red-700">💸 Discount</span>
+                  <select
+                    value={formData.discountType}
+                    onChange={(e) => setFormData({ ...formData, discountType: e.target.value })}
+                    className="px-3 py-1 border-2 rounded font-semibold"
+                  >
+                    <option value="flat">Flat Amount (৳)</option>
+                    <option value="percentage">Percentage (%)</option>
+                  </select>
                 </div>
-              )}
+                <div className="flex justify-between items-center">
+                  <input
+                    type="number"
+                    value={formData.discountValue}
+                    onChange={(e) => setFormData({ ...formData, discountValue: Number(e.target.value) })}
+                    className="w-32 px-3 py-1 border-2 rounded text-right font-bold"
+                    placeholder={formData.discountType === 'percentage' ? '0-100' : 'Amount'}
+                  />
+                  <span className="text-lg font-bold text-red-600">
+                    -৳{(() => {
+                      const subtotal = Number(booking.hallRent || 0) + Number(booking.foodCost || 0) + Number(booking.addonsCost || 0);
+                      const discountAmount = formData.discountType === 'percentage' 
+                        ? subtotal * (Number(formData.discountValue || 0) / 100)
+                        : Number(formData.discountValue || 0);
+                      return discountAmount.toLocaleString();
+                    })()}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="border-2 border-green-100 rounded-lg p-3 my-2">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-semibold text-green-700">📊 VAT</span>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={vatEnabled}
+                      onChange={(e) => {
+                        setVatEnabled(e.target.checked);
+                        if (e.target.checked) {
+                          setFormData({ ...formData, vatPercentage: resortVatPercentage });
+                        } else {
+                          setFormData({ ...formData, vatPercentage: 0, vatAmount: 0 });
+                        }
+                      }}
+                      className="w-5 h-5"
+                    />
+                    <span className="text-sm font-semibold">{vatEnabled ? 'Enabled' : 'Disabled'}</span>
+                  </label>
+                </div>
+                {vatEnabled && (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">VAT Percentage</span>
+                      <input
+                        type="number"
+                        value={formData.vatPercentage}
+                        onChange={(e) => setFormData({ ...formData, vatPercentage: Number(e.target.value) })}
+                        className="w-32 px-3 py-1 border-2 rounded text-right font-bold"
+                        placeholder="0-100"
+                        max="100"
+                        min="0"
+                      />
+                    </div>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-sm text-gray-600">VAT Amount</span>
+                      <span className="text-lg font-bold text-green-600">
+                        +৳{(() => {
+                          const subtotal = Number(booking.hallRent || 0) + Number(booking.foodCost || 0) + Number(booking.addonsCost || 0);
+                          const discountAmount = formData.discountType === 'percentage' 
+                            ? subtotal * (Number(formData.discountValue || 0) / 100)
+                            : Number(formData.discountValue || 0);
+                          const afterDiscount = subtotal - discountAmount;
+                          const vatAmount = afterDiscount * (Number(formData.vatPercentage || 0) / 100);
+                          return vatAmount.toLocaleString();
+                        })()}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+              
+              <button
+                onClick={handleUpdatePricing}
+                className="w-full px-4 py-3 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700 flex items-center justify-center gap-2"
+              >
+                💾 Save Discount & VAT
+              </button>
               
               <div className="flex justify-between items-center pt-2 bg-purple-50 p-4 rounded-lg">
                 <span className="text-xl font-bold text-purple-600">TOTAL</span>
-                <span className="text-2xl font-bold text-purple-600">৳{Number(booking.totalAmount).toLocaleString()}</span>
+                <span className="text-2xl font-bold text-purple-600">
+                  ৳{(() => {
+                    const subtotal = Number(booking.hallRent || 0) + Number(booking.foodCost || 0) + Number(booking.addonsCost || 0);
+                    const discountAmount = formData.discountType === 'percentage' 
+                      ? subtotal * (Number(formData.discountValue || 0) / 100)
+                      : Number(formData.discountValue || 0);
+                    const afterDiscount = subtotal - discountAmount;
+                    const vatAmount = vatEnabled ? afterDiscount * (Number(formData.vatPercentage || 0) / 100) : 0;
+                    const total = afterDiscount + vatAmount;
+                    return total.toLocaleString();
+                  })()}
+                </span>
               </div>
             </div>
           </div>
@@ -639,20 +798,23 @@ export default function ConventionBookingDetail() {
               </div>
               <div>
                 <label className="text-sm font-semibold text-gray-600">Advance Payment</label>
-                {editing ? (
-                  <input
-                    type="number"
-                    value={formData.advancePayment}
-                    onChange={(e) => setFormData({ ...formData, advancePayment: Number(e.target.value) })}
-                    className="w-full mt-2 px-4 py-2 border-2 rounded-lg focus:ring-2 focus:ring-purple-600"
-                  />
-                ) : (
-                  <p className="text-lg font-bold text-green-600">৳{Number(booking.advancePayment).toLocaleString()}</p>
-                )}
+                <p className="text-lg font-bold text-green-600">৳{Number(booking.advancePayment).toLocaleString()}</p>
               </div>
               <div>
                 <label className="text-sm font-semibold text-gray-600">Remaining Payment</label>
-                <p className="text-lg font-bold text-red-600">৳{Number(booking.remainingPayment || booking.totalAmount - booking.advancePayment).toLocaleString()}</p>
+                <p className="text-lg font-bold text-red-600">
+                  ৳{(() => {
+                    const subtotal = Number(booking.hallRent || 0) + Number(booking.foodCost || 0) + Number(booking.addonsCost || 0);
+                    const discountAmount = formData.discountType === 'percentage' 
+                      ? subtotal * (Number(formData.discountValue || 0) / 100)
+                      : Number(formData.discountValue || 0);
+                    const afterDiscount = subtotal - discountAmount;
+                    const vatAmount = vatEnabled ? afterDiscount * (Number(formData.vatPercentage || 0) / 100) : 0;
+                    const total = afterDiscount + vatAmount;
+                    const remaining = total - Number(booking.advancePayment || 0);
+                    return Math.max(0, remaining).toLocaleString();
+                  })()}
+                </p>
               </div>
 
               <div className="pt-3 border-t">
@@ -674,6 +836,18 @@ export default function ConventionBookingDetail() {
                         </div>
                       </div>
                     ))}
+                    {Number(booking.discountValue || 0) > 0 && (
+                      <div className="flex items-center justify-between bg-red-50 px-3 py-2 rounded border border-red-200">
+                        <div>
+                          <div className="font-semibold text-red-700">-৳{Number(booking.discountValue).toLocaleString()}</div>
+                          <div className="text-xs text-gray-500">{new Date(booking.updatedAt).toLocaleString()}</div>
+                        </div>
+                        <div className="text-right text-sm">
+                          <div className="text-red-700 font-semibold">💸 Discount</div>
+                          <div className="text-xs text-gray-500 capitalize">{booking.discountType}</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p className="text-sm text-gray-500">No payments recorded yet.</p>
@@ -911,6 +1085,10 @@ export default function ConventionBookingDetail() {
           <div className="text-center mt-8 pt-4 border-t border-gray-300">
             <p className="text-xs text-gray-600">Thank you for choosing Tufan Resort!</p>
             <p className="text-xs text-gray-500 mt-1">This is a computer-generated invoice.</p>
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <p className="text-xs text-gray-700 font-semibold">Developed By Mir Javed Jeetu</p>
+              <p className="text-xs text-gray-600 mt-1">Contact: 01811480222</p>
+            </div>
           </div>
         </div>
       </div>

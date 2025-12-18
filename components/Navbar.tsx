@@ -1,33 +1,97 @@
 'use client';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+
+interface ResortInfo {
+  resortName?: string;
+  navbarTitle?: string;
+  logoUrl?: string;
+}
+
+interface NavbarLink {
+  id: number;
+  label: string;
+  url: string;
+  displayOrder: number;
+  isActive: boolean;
+}
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [resortInfo, setResortInfo] = useState<ResortInfo>({ resortName: 'Tufan Resort' });
+  const [navLinks, setNavLinks] = useState<NavbarLink[]>([]);
+
+  useEffect(() => {
+    fetchResortInfo();
+    fetchNavLinks();
+  }, []);
+
+  const fetchResortInfo = async () => {
+    try {
+      const response = await axios.get('http://localhost:3001/resort-info');
+      if (response.data) {
+        setResortInfo(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching resort info:', error);
+    }
+  };
+
+  const fetchNavLinks = async () => {
+    try {
+      const response = await axios.get('http://localhost:3001/navbar/active');
+      if (response.data && Array.isArray(response.data)) {
+        setNavLinks(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching navbar links:', error);
+      // Fallback to default links if API fails
+      setNavLinks([
+        { id: 1, label: 'Home', url: '/', displayOrder: 1, isActive: true },
+        { id: 2, label: 'Rooms', url: '/rooms', displayOrder: 2, isActive: true },
+        { id: 3, label: 'Convention Hall', url: '/convention-hall', displayOrder: 3, isActive: true },
+        { id: 4, label: 'About', url: '/about', displayOrder: 4, isActive: true },
+      ]);
+    }
+  };
+
+  const displayName = resortInfo.navbarTitle || resortInfo.resortName || 'Tufan Resort';
+  const words = displayName.split(' ');
+  const firstWord = words[0];
+  const restWords = words.slice(1).join(' ');
 
   return (
     <nav className="bg-gradient-to-r from-primary-600 via-primary-500 to-primary-600 text-white shadow-premium-lg fixed w-full z-50 backdrop-blur-sm">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center py-4">
-          <Link href="/" className="text-3xl font-heading font-bold tracking-wide hover:scale-105 transition-transform duration-300">
-            <span className="bg-gradient-to-r from-accent-400 to-accent-500 bg-clip-text text-transparent">Tufan</span>
-            <span className="text-white"> Resort</span>
+          <Link href="/" className="flex items-center gap-3 hover:scale-105 transition-transform duration-300">
+            {resortInfo.logoUrl && (
+              <img 
+                src={resortInfo.logoUrl} 
+                alt={displayName}
+                className="h-10 w-10 object-contain rounded-full bg-white/10 p-1"
+              />
+            )}
+            <span className="text-3xl font-heading font-bold tracking-wide">
+              <span className="bg-gradient-to-r from-accent-400 to-accent-500 bg-clip-text text-transparent">
+                {firstWord}
+              </span>
+              {restWords && <span className="text-white"> {restWords}</span>}
+            </span>
           </Link>
           
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center space-x-1">
-            <Link href="/" className="px-4 py-2 rounded-lg hover:bg-white/10 hover:text-accent-400 transition-all duration-300 font-medium">
-              Home
-            </Link>
-            <Link href="/rooms" className="px-4 py-2 rounded-lg hover:bg-white/10 hover:text-accent-400 transition-all duration-300 font-medium">
-              Rooms
-            </Link>
-            <Link href="/convention-hall" className="px-4 py-2 rounded-lg hover:bg-white/10 hover:text-accent-400 transition-all duration-300 font-medium">
-              Convention Hall
-            </Link>
-            <Link href="/about" className="px-4 py-2 rounded-lg hover:bg-white/10 hover:text-accent-400 transition-all duration-300 font-medium">
-              About
-            </Link>
+            {navLinks.map((link) => (
+              <Link 
+                key={link.id}
+                href={link.url} 
+                className="px-4 py-2 rounded-lg hover:bg-white/10 hover:text-accent-400 transition-all duration-300 font-medium"
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
 
           {/* Mobile Menu Button */}
@@ -49,18 +113,16 @@ export default function Navbar() {
         {isOpen && (
           <div className="md:hidden pb-4 animate-fade-in">
             <div className="space-y-2 bg-white/10 backdrop-blur-lg rounded-lg p-4">
-              <Link href="/" className="block py-3 px-4 rounded-lg hover:bg-white/10 hover:text-accent-400 transition-all duration-300">
-                Home
-              </Link>
-              <Link href="/rooms" className="block py-3 px-4 rounded-lg hover:bg-white/10 hover:text-accent-400 transition-all duration-300">
-                Rooms
-              </Link>
-              <Link href="/convention-hall" className="block py-3 px-4 rounded-lg hover:bg-white/10 hover:text-accent-400 transition-all duration-300">
-                Convention Hall
-              </Link>
-              <Link href="/about" className="block py-3 px-4 rounded-lg hover:bg-white/10 hover:text-accent-400 transition-all duration-300">
-                About
-              </Link>
+              {navLinks.map((link) => (
+                <Link 
+                  key={link.id}
+                  href={link.url} 
+                  className="block py-3 px-4 rounded-lg hover:bg-white/10 hover:text-accent-400 transition-all duration-300"
+                  onClick={() => setIsOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              ))}
             </div>
           </div>
         )}

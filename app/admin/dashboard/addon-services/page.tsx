@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { api } from '@/lib/api';
 import Modal from '@/components/Modal';
 import { useModal } from '@/hooks/useModal';
 

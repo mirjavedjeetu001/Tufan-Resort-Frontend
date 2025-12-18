@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import axios from 'axios';
 
 export default function AdminLayout({
   children,
@@ -12,6 +13,7 @@ export default function AdminLayout({
   const pathname = usePathname();
   const [user, setUser] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [resortName, setResortName] = useState('Tufan Resort');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -21,8 +23,20 @@ export default function AdminLayout({
       router.push('/admin');
     } else {
       setUser(JSON.parse(userData));
+      fetchResortInfo();
     }
   }, []);
+
+  const fetchResortInfo = async () => {
+    try {
+      const response = await axios.get('http://localhost:3001/resort-info');
+      if (response.data) {
+        setResortName(response.data.resortName || 'Tufan Resort');
+      }
+    } catch (error) {
+      console.error('Error fetching resort info:', error);
+    }
+  };
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -47,10 +61,23 @@ export default function AdminLayout({
       path: '/admin/dashboard/todays-summary',
       permission: 'dashboard.view',
     },
+    { divider: true },
+    {
+      name: 'Room Booking',
+      icon: '➕',
+      path: '/admin/dashboard/premium-booking',
+      permission: 'bookings.manage',
+    },
     {
       name: 'Rooms',
       icon: '🏠',
       path: '/admin/dashboard/rooms',
+      permission: 'rooms.manage',
+    },
+    {
+      name: 'Room Types',
+      icon: '🏷️',
+      path: '/admin/dashboard/room-types',
       permission: 'rooms.manage',
     },
     {
@@ -60,10 +87,23 @@ export default function AdminLayout({
       permission: 'bookings.manage',
     },
     {
+      name: 'Room Bookings Report',
+      icon: '📊',
+      path: '/admin/dashboard/reports/room-bookings',
+      permission: 'bookings.manage',
+    },
+    { divider: true },
+    {
       name: 'Convention Halls',
       icon: '🏛️',
       path: '/admin/dashboard/convention',
       permission: 'convention.manage',
+    },
+    {
+      name: 'New Convention Booking',
+      icon: '📝',
+      path: '/admin/dashboard/premium-convention',
+      permission: 'convention-bookings.manage',
     },
     {
       name: 'Convention Bookings',
@@ -72,28 +112,10 @@ export default function AdminLayout({
       permission: 'convention-bookings.manage',
     },
     {
-      name: 'New Convention Booking',
-      icon: '➕',
-      path: '/admin/dashboard/premium-convention',
-      permission: 'convention-bookings.manage',
-    },
-    {
-      name: 'Room Bookings Report',
-      icon: '📊',
-      path: '/admin/dashboard/reports/room-bookings',
-      permission: 'bookings.manage',
-    },
-    {
       name: 'Convention Report',
       icon: '📈',
       path: '/admin/dashboard/reports/convention-bookings',
       permission: 'convention-bookings.manage',
-    },
-    {
-      name: 'Food Packages',
-      icon: '🍽️',
-      path: '/admin/dashboard/food-packages',
-      permission: 'food-packages.manage',
     },
     {
       name: 'Add-on Services',
@@ -102,16 +124,17 @@ export default function AdminLayout({
       permission: 'addon-services.manage',
     },
     {
+      name: 'Food Packages',
+      icon: '🍽️',
+      path: '/admin/dashboard/food-packages',
+      permission: 'food-packages.manage',
+    },
+    { divider: true },
+    {
       name: 'Hero Slides',
       icon: '🖼️',
       path: '/admin/dashboard/hero-slides',
       permission: 'hero-slides.manage',
-    },
-    {
-      name: 'Room Types',
-      icon: '🏷️',
-      path: '/admin/dashboard/room-types',
-      permission: 'rooms.manage',
     },
     {
       name: 'Resort Settings',
@@ -153,8 +176,8 @@ export default function AdminLayout({
               </svg>
             </button>
             <div>
-              <h1 className="text-lg sm:text-2xl font-bold">🏞️ Tufan Resort CMS</h1>
-              <p className="text-xs text-green-100 hidden sm:block">Content Management System</p>
+              <h1 className="text-lg sm:text-2xl font-bold">🏞️ {resortName}</h1>
+              <p className="text-xs text-green-100 hidden sm:block">Resort & Convention Hall Management System</p>
             </div>
           </div>
           
@@ -209,6 +232,7 @@ export default function AdminLayout({
             <nav className="space-y-2">
               {menuItems
                 .filter((item) => {
+                  if (item.divider) return true;
                   if (!user) return false;
                   if (user.role === 'owner') return true;
                   if (!item.permission) return true;
@@ -216,7 +240,14 @@ export default function AdminLayout({
                   if (!user.permissions || user.permissions.length === 0) return true;
                   return user.permissions.includes(item.permission);
                 })
-                .map((item) => {
+                .map((item, index) => {
+                if (item.divider) {
+                  return (
+                    <div key={`divider-${index}`} className="py-2">
+                      <div className="border-t-2 border-gray-200"></div>
+                    </div>
+                  );
+                }
                 const isActive = pathname === item.path;
                 return (
                   <Link
@@ -239,15 +270,6 @@ export default function AdminLayout({
                 );
               })}
             </nav>
-
-            <div className="mt-8 p-4 bg-gradient-to-br from-accent/10 to-yellow-50 rounded-xl border-2 border-accent/30">
-              <p className="text-xs font-bold text-accent-700 mb-2 flex items-center gap-1">
-                💡 QUICK TIP
-              </p>
-              <p className="text-xs text-gray-700 leading-relaxed">
-                আপনার কন্টেন্ট সতেজ রাখুন! সেরা ফলাফলের জন্য নিয়মিত হিরো স্লাইড এবং রুমের ছবি আপডেট করুন।
-              </p>
-            </div>
           </div>
         </aside>
 

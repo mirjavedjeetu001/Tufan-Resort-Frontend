@@ -120,10 +120,8 @@ export default function AdminDashboard() {
   const hallAvailableCount = Math.max((allHalls.length || 0) - hallBookedCount, 0);
 
   return (
-    <div className="relative overflow-hidden min-h-screen pt-6 md:pt-10 pb-12">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/15 via-accent/8 to-secondary/10 blur-3xl opacity-80" aria-hidden />
-      <div className="absolute inset-x-10 top-10 h-64 bg-gradient-to-r from-white/10 via-white/5 to-white/10 rounded-full blur-3xl" aria-hidden />
-      <div className="relative space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 p-6 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
         <div className="rounded-3xl bg-gradient-to-r from-primary-900 via-primary-700 to-emerald-600 text-white shadow-2xl p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4 border border-white/10">
           <div>
             <p className="text-xs md:text-sm uppercase tracking-[0.35em] text-white/70">Control Center</p>

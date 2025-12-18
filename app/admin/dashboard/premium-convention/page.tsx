@@ -32,13 +32,17 @@ export default function PremiumConventionBooking() {
   const [showManualTime, setShowManualTime] = useState(false);
   const [foodPackageQuantity, setFoodPackageQuantity] = useState(1);
   const [addonQuantities, setAddonQuantities] = useState<Record<number, number>>({});
+  const [customerFound, setCustomerFound] = useState(false);
   
   const [formData, setFormData] = useState({
     hallId: '',
     customerName: '',
+    customerNid: '',
     organizationName: '',
     customerEmail: '',
     customerPhone: '',
+    customerWhatsapp: '',
+    customerAddress: '',
     eventType: 'conference',
     eventDescription: '',
     eventDate: '',
@@ -85,6 +89,35 @@ export default function PremiumConventionBooking() {
       setAddonServices(servicesRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
+    }
+  };
+
+  const checkCustomerByPhone = async (phone: string) => {
+    if (!phone || phone.length < 10) {
+      setCustomerFound(false);
+      return;
+    }
+    
+    try {
+      const response = await api.get(`/convention-bookings/customer/${phone}`);
+      if (response.data) {
+        // Auto-fill customer details
+        setFormData(prev => ({
+          ...prev,
+          customerName: response.data.customerName || prev.customerName,
+          customerNid: response.data.customerNid || prev.customerNid,
+          customerEmail: response.data.customerEmail || prev.customerEmail,
+          customerPhone: response.data.customerPhone || prev.customerPhone,
+          customerWhatsapp: response.data.customerWhatsapp || prev.customerWhatsapp,
+          customerAddress: response.data.customerAddress || prev.customerAddress,
+          organizationName: response.data.organizationName || prev.organizationName,
+        }));
+        setCustomerFound(true);
+        showModal('✅ Customer found! Details auto-filled', 'success');
+      }
+    } catch (error) {
+      setCustomerFound(false);
+      // Silently fail - customer not found is normal
     }
   };
 
@@ -304,6 +337,24 @@ export default function PremiumConventionBooking() {
                 </select>
               </div>
 
+              {/* Phone Number - First Input */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">
+                  📱 Phone Number * 
+                  {customerFound && <span className="ml-2 text-green-600 text-sm font-bold">✅ Customer Found - Details Auto-Filled!</span>}
+                </label>
+                <input
+                  type="tel"
+                  value={formData.customerPhone}
+                  onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
+                  onBlur={(e) => checkCustomerByPhone(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-purple-600"
+                  placeholder="Enter phone number first to auto-fill customer details"
+                  required
+                />
+                <p className="text-sm text-gray-500 mt-1">💡 Enter phone number and press Tab - if customer exists, details will auto-fill</p>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">Contact Person Name *</label>
@@ -334,17 +385,6 @@ export default function PremiumConventionBooking() {
                     value={formData.customerEmail}
                     onChange={(e) => setFormData({ ...formData, customerEmail: e.target.value })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 font-semibold mb-2">Phone Number *</label>
-                  <input
-                    type="tel"
-                    value={formData.customerPhone}
-                    onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600"
-                    required
                   />
                 </div>
 

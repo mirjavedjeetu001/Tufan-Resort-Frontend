@@ -485,19 +485,19 @@ export default function BookingsManagement() {
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1200px]">
-            <thead className="bg-gradient-to-r from-primary to-accent text-white">
+            <thead className="bg-green-700">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Serial/ID</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Room Number</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Customer Name</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Reference Person</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Booked By</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Check-In Date</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Check-Out Date</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Total Amount</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Payment Status</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Booking Status</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap">Actions</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap text-white">Serial/ID</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap text-white">Room Number</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap text-white">Customer Name</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap text-white">Reference Person</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap text-white">Booked By</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap text-white">Check-In Date</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap text-white">Check-Out Date</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap text-white">Total Amount</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap text-white">Payment Status</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap text-white">Booking Status</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap text-white">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">

@@ -239,6 +239,10 @@ export const InvoiceTemplate = React.forwardRef<HTMLDivElement, InvoiceProps>(
           <p className="text-sm text-gray-600 mb-2">Thank you for choosing Tufan Resort!</p>
           <p className="text-xs text-gray-500">This is a computer-generated invoice and does not require a signature.</p>
           <p className="text-xs text-[#006747] font-semibold mt-2">🇧🇩 Proudly Made in Bangladesh</p>
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <p className="text-xs text-gray-700 font-semibold">Developed By Mir Javed Jeetu</p>
+            <p className="text-xs text-gray-600 mt-1">Contact: 01811480222</p>
+          </div>
         </div>
       </div>
     );

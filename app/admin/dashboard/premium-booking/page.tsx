@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { api } from '@/lib/api';
 import { useReactToPrint } from 'react-to-print';
 import { InvoiceTemplate } from '@/components/InvoiceTemplate';
 import Link from 'next/link';
@@ -28,6 +29,7 @@ export default function PremiumBookingPage() {
   const [createdBooking, setCreatedBooking] = useState<any>(null);
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [vatPercentage, setVatPercentage] = useState(15); // Default 15%
+  const [customerFound, setCustomerFound] = useState(false);
   
   const [formData, setFormData] = useState({
     // Room Selection
@@ -99,11 +101,56 @@ export default function PremiumBookingPage() {
   const fetchResortInfo = async () => {
     try {
       const response = await axios.get('http://localhost:3001/resort-info');
-      if (response.data && response.data.vatPercentage) {
-        setVatPercentage(response.data.vatPercentage);
+      if (response.data) {
+        // Set VAT percentage
+        if (response.data.vatPercentage) {
+          setVatPercentage(response.data.vatPercentage);
+        }
+        
+        // Set default check-in/check-out times from resort settings
+        const checkInTime = response.data.defaultCheckInTime 
+          ? response.data.defaultCheckInTime.substring(0, 5) 
+          : '14:00';
+        const checkOutTime = response.data.defaultCheckOutTime 
+          ? response.data.defaultCheckOutTime.substring(0, 5) 
+          : '11:00';
+          
+        setFormData(prev => ({
+          ...prev,
+          checkInTime,
+          checkOutTime
+        }));
       }
     } catch (error) {
       console.error('Error fetching resort info:', error);
+    }
+  };
+
+  const checkCustomerByPhone = async (phone: string) => {
+    if (!phone || phone.length < 10) {
+      setCustomerFound(false);
+      return;
+    }
+    
+    try {
+      const response = await api.get(`/bookings/customer/${phone}`);
+      if (response.data) {
+        // Auto-fill customer details
+        setFormData(prev => ({
+          ...prev,
+          customerName: response.data.guestName || prev.customerName,
+          customerNid: response.data.guestNid || prev.customerNid,
+          customerEmail: response.data.guestEmail || prev.customerEmail,
+          customerPhone: response.data.guestPhone || prev.customerPhone,
+          customerAddress: response.data.guestAddress || prev.customerAddress,
+        }));
+        setCustomerFound(true);
+        showModal('✅ Customer found! Details auto-filled', 'success');
+      }
+    } catch (error: any) {
+      setCustomerFound(false);
+      console.log('Customer not found:', error.response?.status);
+      // Silently fail - customer not found is normal
     }
   };
 
@@ -578,6 +625,23 @@ export default function PremiumBookingPage() {
             <h2 className="text-2xl font-bold mb-6 text-[#006747]">👤 Guest Information</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="md:col-span-2">
+                <label className="block text-gray-700 font-semibold mb-2">
+                  📱 Phone Number * 
+                  {customerFound && <span className="ml-2 text-green-600 text-sm font-bold">✅ Customer Found - Details Auto-Filled!</span>}
+                </label>
+                <input
+                  type="tel"
+                  value={formData.customerPhone}
+                  onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
+                  onBlur={(e) => checkCustomerByPhone(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006747] focus:border-[#006747]"
+                  placeholder="Enter phone number first to auto-fill customer details"
+                  required
+                />
+                <p className="text-sm text-gray-500 mt-1">💡 Enter phone number and press Tab - if customer exists, details will auto-fill</p>
+              </div>
+
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">Full Name *</label>
                 <input
@@ -595,17 +659,6 @@ export default function PremiumBookingPage() {
                   type="text"
                   value={formData.customerNid}
                   onChange={(e) => setFormData({ ...formData, customerNid: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006747]"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-700 font-semibold mb-2">Phone Number *</label>
-                <input
-                  type="tel"
-                  value={formData.customerPhone}
-                  onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006747]"
                   required
                 />

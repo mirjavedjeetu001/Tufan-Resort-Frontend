@@ -14,6 +14,7 @@ interface RoomType {
 }
 
 export default function RoomTypesManagement() {
+  const { modalState, openModal, closeModal } = useModal();
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -56,7 +57,7 @@ export default function RoomTypesManagement() {
       }
       
       fetchRoomTypes();
-      closeModal();
+      closeFormModal();
     } catch (error) {
       console.error('Error saving room type:', error);
       alert('Error saving room type. Please try again.');
@@ -110,7 +111,11 @@ export default function RoomTypesManagement() {
     }
   };
 
-  const openModal = (type?: RoomType) => {
+  const showAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' = 'error', onConfirm?: () => void, confirmText?: string, cancelText?: string) => {
+    openModal({ title, message, type, onConfirm, confirmText, cancelText });
+  };
+
+  const openFormModal = (type?: RoomType) => {
     if (type) {
       setEditingType(type);
       setFormData({
@@ -125,7 +130,7 @@ export default function RoomTypesManagement() {
     setShowModal(true);
   };
 
-  const closeModal = () => {
+  const closeFormModal = () => {
     setShowModal(false);
     setEditingType(null);
     setFormData({ name: '', description: '', isActive: true });
@@ -151,7 +156,7 @@ export default function RoomTypesManagement() {
         {/* Add New Button */}
         <div className="mb-6 flex gap-3">
           <button
-            onClick={() => openModal()}
+            onClick={() => openFormModal()}
             className="bg-gradient-to-r from-[#006747] to-[#f4a425] text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition"
           >
             ➕ Add New Room Type
@@ -197,7 +202,7 @@ export default function RoomTypesManagement() {
               
               <div className="flex gap-2 border-t pt-4">
                 <button
-                  onClick={() => openModal(type)}
+                  onClick={() => openFormModal(type)}
                   className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg font-medium transition"
                 >
                   📝 Edit
@@ -226,7 +231,7 @@ export default function RoomTypesManagement() {
                 🌱 Create Default Types
               </button>
               <button
-                onClick={() => openModal()}
+                onClick={() => openFormModal()}
                 className="bg-gradient-to-r from-[#006747] to-[#f4a425] text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg"
               >
                 ➕ Add Custom Type
@@ -295,7 +300,7 @@ export default function RoomTypesManagement() {
               <div className="flex gap-4 mt-8">
                 <button
                   type="button"
-                  onClick={closeModal}
+                  onClick={closeFormModal}
                   className="flex-1 bg-gray-300 text-gray-700 px-6 py-4 rounded-lg font-bold hover:bg-gray-400"
                 >
                   ❌ Cancel

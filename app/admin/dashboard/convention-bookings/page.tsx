@@ -115,8 +115,18 @@ export default function ConventionBookingsList() {
     <div className="p-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-8 mb-6 text-white">
-        <h1 className="text-3xl font-bold mb-2">🎪 Convention Hall Bookings</h1>
-        <p className="text-purple-50">Manage all convention hall bookings</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">🎪 Convention Hall Bookings</h1>
+            <p className="text-purple-50">Manage all convention hall bookings</p>
+          </div>
+          <button
+            onClick={() => window.location.href = '/admin/dashboard/premium-convention'}
+            className="bg-white text-purple-600 px-6 py-3 rounded-lg font-semibold hover:bg-purple-50 transition-colors flex items-center gap-2"
+          >
+            ➕ New Booking
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
