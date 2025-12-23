@@ -950,144 +950,194 @@ export default function ConventionBookingDetail() {
 
       {/* Hidden Print Invoice */}
       <div style={{ display: 'none' }}>
-        <div ref={invoiceRef} className="p-8 bg-white">
+        <div ref={invoiceRef} className="p-6 bg-white max-w-[800px] mx-auto">
           <style jsx>{`
             @media print {
               @page {
                 size: A4;
-                margin: 15mm;
+                margin: 10mm;
               }
               body {
                 print-color-adjust: exact;
                 -webkit-print-color-adjust: exact;
+                font-size: 11px;
               }
             }
           `}</style>
 
-          {/* Invoice Header */}
-          <div className="text-center mb-6 border-b-4 border-purple-600 pb-4">
-            <h1 className="text-3xl font-bold text-purple-600">TUFAN RESORT</h1>
-            <p className="text-sm text-gray-600">Convention Hall Booking Invoice</p>
-            <p className="text-xs text-gray-500 mt-1">Phone: +880-1234-567890 | Email: info@tufanresort.com</p>
+          {/* Invoice Header - Compact */}
+          <div className="text-center mb-4 border-b-2 border-purple-600 pb-2">
+            <h1 className="text-2xl font-bold text-purple-600">TUFAN RESORT</h1>
+            <p className="text-xs text-gray-600">Convention Hall Booking Invoice</p>
+            <p className="text-xs text-gray-500">Phone: +880-1234-567890 | Email: info@tufanresort.com</p>
           </div>
 
-          {/* Invoice Info */}
-          <div className="flex justify-between mb-6">
-            <div>
-              <p className="font-bold">Invoice #: {booking.id}</p>
-              <p className="text-sm">Date: {new Date().toLocaleDateString('en-GB')}</p>
-              <p className="text-sm">Booking Date: {new Date(booking.createdAt).toLocaleDateString('en-GB')}</p>
+          {/* Invoice Info & Status - Compact */}
+          <div className="flex justify-between mb-3 text-xs">
+            <div className="space-y-0.5">
+              <p><strong>Invoice #:</strong> {booking.id}</p>
+              <p><strong>Date:</strong> {new Date().toLocaleDateString('en-GB')}</p>
+              <p><strong>Booking:</strong> {new Date(booking.createdAt).toLocaleDateString('en-GB')}</p>
             </div>
-            <div className="text-right">
-              <p className="font-bold">Status: {booking.status.toUpperCase()}</p>
-              <p className="text-sm">Payment: {booking.paymentStatus.toUpperCase()}</p>
+            <div className="text-right space-y-0.5">
+              <p><strong>Status:</strong> {booking.status.toUpperCase()}</p>
+              <p><strong>Payment:</strong> {booking.paymentStatus.toUpperCase()}</p>
             </div>
           </div>
 
-          {/* Customer Info */}
-          <div className="mb-6">
-            <h3 className="font-bold text-lg mb-2 border-b border-gray-300">Customer Information</h3>
-            <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+          {/* Customer & Event Info Combined - Compact */}
+          <div className="mb-3">
+            <h3 className="font-bold text-sm mb-1 border-b border-gray-300">Customer & Event Details</h3>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-xs">
               <div><strong>Name:</strong> {booking.customerName}</div>
-              <div><strong>Organization:</strong> {booking.organizationName || 'N/A'}</div>
-              <div><strong>Phone:</strong> {booking.customerPhone}</div>
-              <div><strong>Email:</strong> {booking.customerEmail || 'N/A'}</div>
-              <div className="col-span-2"><strong>Address:</strong> {booking.customerAddress || 'N/A'}</div>
-            </div>
-          </div>
-
-          {/* Event Details */}
-          <div className="mb-6">
-            <h3 className="font-bold text-lg mb-2 border-b border-gray-300">Event Details</h3>
-            <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
               <div><strong>Hall:</strong> {booking.hall?.name || `Hall ${booking.hallId}`}</div>
+              <div><strong>Organization:</strong> {booking.organizationName || 'N/A'}</div>
               <div><strong>Event Type:</strong> {booking.eventType}</div>
+              <div><strong>Phone:</strong> {booking.customerPhone}</div>
               <div><strong>Event Date:</strong> {new Date(booking.eventDate).toLocaleDateString('en-GB')}</div>
+              <div><strong>Email:</strong> {booking.customerEmail || 'N/A'}</div>
               <div><strong>Time Slot:</strong> {booking.timeSlot}</div>
-              <div><strong>Number of Guests:</strong> {booking.numberOfGuests}</div>
-              <div><strong>Hall Capacity:</strong> {booking.hall?.maxCapacity || 'N/A'}</div>
+              <div><strong>Address:</strong> {booking.customerAddress || 'N/A'}</div>
+              <div><strong>Guests:</strong> {booking.numberOfGuests} / {booking.hall?.maxCapacity || 'N/A'}</div>
             </div>
           </div>
 
-          {/* Invoice Table */}
-          <table className="w-full mb-6 border-collapse">
+          {/* Invoice Table - Compact */}
+          <table className="w-full mb-3 border-collapse text-xs">
             <thead>
               <tr className="bg-purple-600 text-white">
-                <th className="border border-gray-300 px-4 py-2 text-left">Description</th>
-                <th className="border border-gray-300 px-4 py-2 text-right">Amount (৳)</th>
+                <th className="border border-gray-300 px-2 py-1 text-left">Description</th>
+                <th className="border border-gray-300 px-2 py-1 text-right w-24">Amount (৳)</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td className="border border-gray-300 px-4 py-2">Hall Rent</td>
-                <td className="border border-gray-300 px-4 py-2 text-right">৳{Number(booking.hallRent).toLocaleString('en-BD')}</td>
+                <td className="border border-gray-300 px-2 py-1">Hall Rent</td>
+                <td className="border border-gray-300 px-2 py-1 text-right">৳{Number(booking.hallRent).toLocaleString('en-BD')}</td>
               </tr>
-              <tr>
-                <td className="border border-gray-300 px-4 py-2">Food Cost ({booking.numberOfGuests} guests)</td>
-                <td className="border border-gray-300 px-4 py-2 text-right">৳{Number(booking.foodCost).toLocaleString('en-BD')}</td>
-              </tr>
+              {booking.foodCost > 0 && (
+                <tr>
+                  <td className="border border-gray-300 px-2 py-1">Food Cost ({booking.numberOfGuests} guests)</td>
+                  <td className="border border-gray-300 px-2 py-1 text-right">৳{Number(booking.foodCost).toLocaleString('en-BD')}</td>
+                </tr>
+              )}
               {selectedAddons.length > 0 && selectedAddons.map(addonId => {
                 const addon = allAddonServices.find(s => s.id === addonId);
                 const quantity = addonQuantities[addonId] || 1;
                 return addon ? (
                   <tr key={addonId}>
-                    <td className="border border-gray-300 px-4 py-2">
+                    <td className="border border-gray-300 px-2 py-1">
                       {addon.name} {quantity > 1 ? `(×${quantity})` : ''}
                     </td>
-                    <td className="border border-gray-300 px-4 py-2 text-right">৳{(addon.price * quantity).toLocaleString('en-BD')}</td>
+                    <td className="border border-gray-300 px-2 py-1 text-right">৳{(addon.price * quantity).toLocaleString('en-BD')}</td>
                   </tr>
                 ) : null;
               })}
-              <tr>
-                <td className="border border-gray-300 px-4 py-2 font-bold">Subtotal</td>
-                <td className="border border-gray-300 px-4 py-2 text-right font-bold">
+              <tr className="font-semibold">
+                <td className="border border-gray-300 px-2 py-1">Subtotal</td>
+                <td className="border border-gray-300 px-2 py-1 text-right">
                   ৳{(Number(booking.hallRent) + Number(booking.foodCost) + Number(booking.addonsCost)).toLocaleString('en-BD')}
                 </td>
               </tr>
               {booking.discount > 0 && (
                 <tr className="text-red-600">
-                  <td className="border border-gray-300 px-4 py-2">Discount</td>
-                  <td className="border border-gray-300 px-4 py-2 text-right">-৳{Number(booking.discount).toLocaleString('en-BD')}</td>
+                  <td className="border border-gray-300 px-2 py-1">Discount</td>
+                  <td className="border border-gray-300 px-2 py-1 text-right">-৳{Number(booking.discount).toLocaleString('en-BD')}</td>
                 </tr>
               )}
-              <tr className="bg-purple-100">
-                <td className="border border-gray-300 px-4 py-2 font-bold text-lg">TOTAL</td>
-                <td className="border border-gray-300 px-4 py-2 text-right font-bold text-lg">৳{Number(booking.totalAmount).toLocaleString('en-BD')}</td>
+              {booking.vatAmount > 0 && (
+                <tr>
+                  <td className="border border-gray-300 px-2 py-1">VAT ({booking.vatPercentage}%)</td>
+                  <td className="border border-gray-300 px-2 py-1 text-right">৳{Number(booking.vatAmount).toLocaleString('en-BD')}</td>
+                </tr>
+              )}
+              <tr className="bg-purple-100 font-bold">
+                <td className="border border-gray-300 px-2 py-1.5">TOTAL</td>
+                <td className="border border-gray-300 px-2 py-1.5 text-right">৳{Number(booking.totalAmount).toLocaleString('en-BD')}</td>
               </tr>
             </tbody>
           </table>
 
-          {/* Payment Summary */}
-          <div className="mb-6 border-t-2 border-gray-300 pt-4">
-            <div className="flex justify-between text-sm mb-2">
-              <span>Advance Payment:</span>
-              <span className="font-bold text-green-600">৳{Number(booking.advancePayment).toLocaleString('en-BD')}</span>
+          {/* Payment Breakdown - Compact & Clear */}
+          <div className="mb-3 border-2 border-purple-300 rounded-lg overflow-hidden">
+            <div className="bg-purple-100 px-2 py-1">
+              <h4 className="text-xs font-bold text-purple-800">Payment Breakdown</h4>
             </div>
-            <div className="flex justify-between text-sm mb-2">
-              <span>Remaining Payment:</span>
-              <span className="font-bold text-red-600">৳{Number(booking.remainingPayment || booking.totalAmount - booking.advancePayment).toLocaleString('en-BD')}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span>Payment Method:</span>
-              <span className="capitalize">{booking.paymentMethod}</span>
-            </div>
+            <table className="w-full text-xs">
+              <tbody>
+                {/* Individual Payments */}
+                {booking.payments && booking.payments.length > 0 ? (
+                  <>
+                    {[...booking.payments].sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()).map((payment: any, index: number) => (
+                      <tr key={payment.id} className="border-b border-gray-200">
+                        <td className="px-2 py-1.5">
+                          {index === 0 ? 'Advance Payment' : `Payment ${index + 1}`}
+                          <div className="text-xs text-gray-500">{new Date(payment.createdAt).toLocaleDateString('en-GB')}</div>
+                        </td>
+                        <td className="px-2 py-1.5 text-right">
+                          <div className="font-bold text-green-700">৳{Number(payment.amount).toLocaleString('en-BD')}</div>
+                          <div className="text-xs text-gray-500 capitalize">{payment.method}</div>
+                        </td>
+                      </tr>
+                    ))}
+                  </>
+                ) : (
+                  <tr className="border-b border-gray-200">
+                    <td className="px-2 py-1.5">Advance Payment</td>
+                    <td className="px-2 py-1.5 text-right font-bold text-green-700">
+                      ৳{Number(booking.advancePayment).toLocaleString('en-BD')}
+                    </td>
+                  </tr>
+                )}
+                
+                {/* Total Paid */}
+                <tr className="bg-green-50 font-semibold border-b border-gray-300">
+                  <td className="px-2 py-1.5">Total Paid</td>
+                  <td className="px-2 py-1.5 text-right text-green-700">
+                    ৳{Number(booking.advancePayment).toLocaleString('en-BD')}
+                  </td>
+                </tr>
+                
+                {/* Due Amount */}
+                <tr className="bg-red-50 font-semibold">
+                  <td className="px-2 py-1.5">Due / Remaining</td>
+                  <td className="px-2 py-1.5 text-right text-red-600">
+                    ৳{Number(booking.remainingPayment || booking.totalAmount - booking.advancePayment).toLocaleString('en-BD')}
+                  </td>
+                </tr>
+                
+                {/* Payment Status */}
+                <tr className="bg-gray-50">
+                  <td className="px-2 py-1.5 font-semibold">Payment Status</td>
+                  <td className="px-2 py-1.5 text-right">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                      booking.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' :
+                      booking.paymentStatus === 'partial' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      {booking.paymentStatus.toUpperCase()}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
-          {/* Notes */}
+          {/* Notes - Compact */}
           {booking.notes && (
-            <div className="mb-6">
-              <h3 className="font-bold text-sm mb-2">Notes:</h3>
-              <p className="text-sm text-gray-700">{booking.notes}</p>
+            <div className="mb-2">
+              <h3 className="font-bold text-xs mb-1">Notes:</h3>
+              <p className="text-xs text-gray-700">{booking.notes}</p>
             </div>
           )}
 
-          {/* Footer */}
-          <div className="text-center mt-8 pt-4 border-t border-gray-300">
+          {/* Footer - Compact */}
+          <div className="text-center mt-4 pt-2 border-t border-gray-300">
             <p className="text-xs text-gray-600">Thank you for choosing Tufan Resort!</p>
-            <p className="text-xs text-gray-500 mt-1">This is a computer-generated invoice.</p>
-            <div className="mt-4 pt-4 border-t border-gray-200">
+            <p className="text-xs text-gray-500">This is a computer-generated invoice.</p>
+            <div className="mt-2 pt-2 border-t border-gray-200">
               <p className="text-xs text-gray-700 font-semibold">Developed By Mir Javed Jeetu</p>
-              <p className="text-xs text-gray-600 mt-1">Contact: 01811480222</p>
+              <p className="text-xs text-gray-600">Contact: 01811480222</p>
             </div>
           </div>
         </div>

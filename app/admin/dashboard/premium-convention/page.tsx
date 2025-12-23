@@ -33,6 +33,9 @@ export default function PremiumConventionBooking() {
   const [foodPackageQuantity, setFoodPackageQuantity] = useState(1);
   const [addonQuantities, setAddonQuantities] = useState<Record<number, number>>({});
   const [customerFound, setCustomerFound] = useState(false);
+  const [foodSource, setFoodSource] = useState<'our' | 'own'>('our');
+  const [availableHalls, setAvailableHalls] = useState<any[]>([]);
+  const [loadingHalls, setLoadingHalls] = useState(false);
   
   const [formData, setFormData] = useState({
     hallId: '',
@@ -49,7 +52,7 @@ export default function PremiumConventionBooking() {
     timeSlot: 'morning',
     customStartTime: '',
     customEndTime: '',
-    numberOfGuests: 50,
+    numberOfGuests: 0,
     
     foodPackageId: '',
     foodPackageQuantity: 1,
@@ -140,10 +143,48 @@ export default function PremiumConventionBooking() {
     }
   };
 
+  const checkAvailableHalls = async (date: string, timeSlot: string) => {
+    if (!date || !timeSlot || timeSlot === 'custom') {
+      setAvailableHalls([]);
+      return;
+    }
+
+    setLoadingHalls(true);
+    try {
+      // Check availability for all halls
+      const hallAvailability = await Promise.all(
+        halls.map(async (hall) => {
+          try {
+            const response = await conventionBookingsAPI.checkAvailability(
+              hall.id,
+              date,
+              timeSlot
+            );
+            return { ...hall, available: response.data.available };
+          } catch (error) {
+            return { ...hall, available: false };
+          }
+        })
+      );
+      
+      setAvailableHalls(hallAvailability);
+    } catch (error) {
+      console.error('Error checking hall availability:', error);
+      setAvailableHalls(halls.map(h => ({ ...h, available: true }))); // Fallback: show all
+    } finally {
+      setLoadingHalls(false);
+    }
+  };
+
   const handleHallSelect = (hallId: string) => {
     const hall = halls.find(h => h.id === Number(hallId));
     if (hall) {
-      setFormData({ ...formData, hallId, hallRent: hall.pricePerDay });
+      setFormData({ 
+        ...formData, 
+        hallId, 
+        hallRent: hall.pricePerDay,
+        numberOfGuests: formData.numberOfGuests || hall.maxCapacity // Set to capacity if not already set
+      });
       calculateTotal();
     }
   };
@@ -248,13 +289,23 @@ export default function PremiumConventionBooking() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate number of guests
+    if (!formData.numberOfGuests || formData.numberOfGuests <= 0) {
+      showModal('Please enter the number of guests', 'error');
+      return;
+    }
+    
     // Prepare submission data with selected addons and quantities as JSON
     const submissionData = {
       ...formData,
+      numberOfGuests: Number(formData.numberOfGuests),
       foodPackageId: formData.foodPackageId ? Number(formData.foodPackageId) : null,
       foodPackageQuantity: foodPackageQuantity,
       selectedAddons: JSON.stringify(selectedAddons), // Convert to JSON string for backend
       addonQuantities: JSON.stringify(addonQuantities), // Store quantities
+      discountType: formData.discountType === 'none' ? 'flat' : formData.discountType, // Convert 'none' to 'flat' for database
+      vatPercentage: formData.vatEnabled ? formData.vatPercentage : 0, // Set VAT percentage to 0 if not enabled
+      vatAmount: formData.vatEnabled ? formData.vatAmount : 0, // Set VAT amount to 0 if not enabled
     };
     
     console.log('Submitting convention booking:', submissionData);
@@ -319,22 +370,151 @@ export default function PremiumConventionBooking() {
             <h2 className="text-2xl font-bold mb-6 text-purple-600">🏛️ Select Hall & Event Details</h2>
             
             <div className="space-y-6">
-              {/* Hall Selection */}
+              {/* Event Date and Time Slot First */}
+              <div className="bg-purple-50 border-2 border-purple-300 rounded-xl p-6 mb-6">
+                <h3 className="text-lg font-bold text-purple-800 mb-4">📅 First: Select Date & Time</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-gray-700 font-semibold mb-2">Event Date *</label>
+                    <input
+                      type="date"
+                      value={formData.eventDate}
+                      onChange={(e) => {
+                        setFormData({ ...formData, eventDate: e.target.value });
+                        if (e.target.value && formData.timeSlot && formData.timeSlot !== 'custom') {
+                          checkAvailableHalls(e.target.value, formData.timeSlot);
+                        }
+                      }}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full px-4 py-3 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-600"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 font-semibold mb-2">Time Slot *</label>
+                    <select
+                      value={formData.timeSlot}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setFormData({ ...formData, timeSlot: value });
+                        setShowManualTime(value === 'custom');
+                        if (formData.eventDate && value && value !== 'custom') {
+                          checkAvailableHalls(formData.eventDate, value);
+                        } else {
+                          setAvailableHalls([]);
+                        }
+                      }}
+                      className="w-full px-4 py-3 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-600"
+                      required
+                    >
+                      <option value="">Choose time slot...</option>
+                      <option value="morning">🌅 Morning</option>
+                      <option value="night">🌙 Night</option>
+                      <option value="custom">⏱️ Custom Time</option>
+                    </select>
+                  </div>
+
+                  {showManualTime && (
+                    <>
+                      <div>
+                        <label className="block text-gray-700 font-semibold mb-2">Start Time *</label>
+                        <input
+                          type="time"
+                          value={formData.customStartTime}
+                          onChange={(e) => setFormData({ ...formData, customStartTime: e.target.value })}
+                          className="w-full px-4 py-3 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-600"
+                          required={showManualTime}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-700 font-semibold mb-2">End Time *</label>
+                        <input
+                          type="time"
+                          value={formData.customEndTime}
+                          onChange={(e) => setFormData({ ...formData, customEndTime: e.target.value })}
+                          className="w-full px-4 py-3 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-600"
+                          required={showManualTime}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Hall Selection - Shows after date/time selection */}
               <div>
-                <label className="block text-gray-700 font-semibold mb-2">Select Convention Hall *</label>
-                <select
-                  value={formData.hallId}
-                  onChange={(e) => handleHallSelect(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600"
-                  required
-                >
-                  <option value="">Choose a hall...</option>
-                  {halls.map(hall => (
-                    <option key={hall.id} value={hall.id}>
-                      {hall.name} - Capacity: {hall.capacity} - ৳{hall.pricePerDay}/day
-                    </option>
-                  ))}
-                </select>
+                <label className="block text-gray-700 font-semibold mb-2">
+                  Select Convention Hall *
+                  {formData.eventDate && formData.timeSlot && formData.timeSlot !== 'custom' && (
+                    <span className="ml-2 text-sm text-green-600">✅ Showing available halls for selected date/time</span>
+                  )}
+                </label>
+                
+                {!formData.eventDate || !formData.timeSlot ? (
+                  <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 text-center">
+                    <p className="text-yellow-800 font-semibold">⬆️ Please select Event Date and Time Slot first</p>
+                  </div>
+                ) : loadingHalls ? (
+                  <div className="bg-gray-50 border-2 border-gray-300 rounded-lg p-4 text-center">
+                    <p className="text-gray-600">⏳ Checking hall availability...</p>
+                  </div>
+                ) : formData.timeSlot === 'custom' ? (
+                  <select
+                    value={formData.hallId}
+                    onChange={(e) => handleHallSelect(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600"
+                    required
+                  >
+                    <option value="">Choose a hall...</option>
+                    {halls.map(hall => (
+                      <option key={hall.id} value={hall.id}>
+                        {hall.name} - Capacity: {hall.capacity} - ৳{hall.pricePerDay}/day
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {availableHalls.filter(h => h.available).length === 0 ? (
+                      <div className="col-span-2 bg-red-50 border-2 border-red-300 rounded-lg p-6 text-center">
+                        <p className="text-red-800 font-semibold text-lg">❌ No halls available for this date and time</p>
+                        <p className="text-red-600 text-sm mt-2">Please choose a different date or time slot</p>
+                      </div>
+                    ) : (
+                      availableHalls.map(hall => (
+                        <div
+                          key={hall.id}
+                          onClick={() => hall.available && handleHallSelect(hall.id.toString())}
+                          className={`border-2 rounded-xl p-4 transition-all ${
+                            hall.available
+                              ? formData.hallId === hall.id.toString()
+                                ? 'border-purple-600 bg-purple-50 cursor-pointer shadow-lg'
+                                : 'border-gray-300 hover:border-purple-400 cursor-pointer'
+                              : 'border-red-300 bg-red-50 opacity-50 cursor-not-allowed'
+                          }`}
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-bold text-lg">{hall.name}</h4>
+                            {formData.hallId === hall.id.toString() && (
+                              <span className="text-purple-600">✓</span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600 mb-2">Capacity: {hall.capacity} guests</p>
+                          <p className="text-lg font-bold text-purple-600">৳{hall.pricePerDay.toLocaleString()}/day</p>
+                          {hall.available ? (
+                            <span className="inline-block mt-2 px-3 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full">
+                              ✅ Available
+                            </span>
+                          ) : (
+                            <span className="inline-block mt-2 px-3 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-full">
+                              ❌ Booked
+                            </span>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Phone Number - First Input */}
@@ -406,64 +586,17 @@ export default function PremiumConventionBooking() {
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2">Event Date *</label>
-                  <input
-                    type="date"
-                    value={formData.eventDate}
-                    onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 font-semibold mb-2">Time Slot *</label>
-                  <select
-                    value={formData.timeSlot}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setFormData({ ...formData, timeSlot: value });
-                      setShowManualTime(value === 'custom');
-                    }}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600"
-                    required
-                  >
-                    <option value="morning">🌅 Morning (8 AM - 12 PM)</option>
-                    <option value="afternoon">☀️ Afternoon (12 PM - 5 PM)</option>
-                    <option value="evening">🌆 Evening (5 PM - 10 PM)</option>
-                    <option value="fullday">⏰ Full Day (8 AM - 10 PM)</option>
-                    <option value="custom">⏱️ Custom Time (Manual Entry)</option>
-                  </select>
-                </div>
-
-                {showManualTime && (
-                  <>
-                    <div>
-                      <label className="block text-gray-700 font-semibold mb-2">Start Time *</label>
-                      <input
-                        type="time"
-                        value={formData.customStartTime}
-                        onChange={(e) => setFormData({ ...formData, customStartTime: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600"
-                        required={showManualTime}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-gray-700 font-semibold mb-2">End Time *</label>
-                      <input
-                        type="time"
-                        value={formData.customEndTime}
-                        onChange={(e) => setFormData({ ...formData, customEndTime: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600"
-                        required={showManualTime}
-                      />
-                    </div>
-                  </>
-                )}
-
-                <div>
-                  <label className="block text-gray-700 font-semibold mb-2">Number of Guests *</label>
+                  <label className="block text-gray-700 font-semibold mb-2">
+                    Number of Guests *
+                    {formData.hallId && (() => {
+                      const selectedHall = halls.find(h => h.id === Number(formData.hallId));
+                      return selectedHall ? (
+                        <span className="text-sm text-gray-500 font-normal ml-2">
+                          (Hall Capacity: {selectedHall.maxCapacity})
+                        </span>
+                      ) : null;
+                    })()}
+                  </label>
                   <input
                     type="number"
                     value={formData.numberOfGuests}
@@ -475,6 +608,7 @@ export default function PremiumConventionBooking() {
                     }}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600"
                     min="1"
+                    placeholder="Enter number of guests"
                     required
                   />
                 </div>
@@ -555,45 +689,99 @@ export default function PremiumConventionBooking() {
             
             {/* Food Packages */}
             <div className="mb-8">
-              <h3 className="text-xl font-bold mb-4 text-gray-800">Choose Food Package:</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {foodPackages.map(pkg => (
-                  <div
-                    key={pkg.id}
-                    onClick={() => handleFoodPackageSelect(pkg.id.toString())}
-                    className={`cursor-pointer border-2 rounded-xl p-4 transition-all ${
-                      formData.foodPackageId === pkg.id.toString()
-                        ? 'border-purple-600 bg-purple-50 shadow-lg'
-                        : 'border-gray-300 hover:border-purple-400'
-                    }`}
-                  >
-                    <h4 className="font-bold text-lg mb-2">{pkg.name}</h4>
-                    <p className="text-2xl font-bold text-purple-600 mb-2">৳{pkg.pricePerPerson}<span className="text-sm">/person</span></p>
-                    <p className="text-sm text-gray-600 mb-2">{pkg.description}</p>
-                    <div className="text-xs text-gray-500">
-                      {pkg.items.slice(0, 3).join(', ')}...
-                    </div>
-                    {formData.foodPackageId === pkg.id.toString() && (
-                      <div className="mt-3 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <label className="text-sm font-semibold">Qty:</label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={foodPackageQuantity}
-                            onChange={(e) => handleFoodQuantityChange(Number(e.target.value))}
-                            onClick={(e) => e.stopPropagation()}
-                            className="w-20 px-2 py-1 border-2 border-purple-300 rounded focus:ring-2 focus:ring-purple-600"
-                          />
-                        </div>
-                        <div className="text-green-600 font-bold">
-                          ✓ Total: ৳{formData.foodCost.toLocaleString()}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+              <h3 className="text-xl font-bold mb-4 text-gray-800">Food Arrangement:</h3>
+              
+              {/* Food Source Selection */}
+              <div className="flex gap-4 mb-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFoodSource('our');
+                    if (formData.foodPackageId) {
+                      // Keep existing selection
+                    } else {
+                      setFormData({ ...formData, foodPackageId: '', foodCost: 0 });
+                    }
+                  }}
+                  className={`flex-1 py-4 px-6 rounded-xl font-bold text-lg transition-all ${
+                    foodSource === 'our'
+                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  🍽️ Our Food Packages
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFoodSource('own');
+                    setFormData({ ...formData, foodPackageId: '', foodCost: 0 });
+                    setFoodPackageQuantity(1);
+                    setTimeout(calculateTotal, 100);
+                  }}
+                  className={`flex-1 py-4 px-6 rounded-xl font-bold text-lg transition-all ${
+                    foodSource === 'own'
+                      ? 'bg-gradient-to-r from-green-600 to-teal-600 text-white shadow-lg'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  🏠 Own/External Catering
+                </button>
               </div>
+
+              {/* Show food packages only if "Our Food Packages" is selected */}
+              {foodSource === 'our' && (
+                <>
+                  <h4 className="text-lg font-semibold mb-3 text-gray-700">Choose Food Package:</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {foodPackages.map(pkg => (
+                      <div
+                        key={pkg.id}
+                        onClick={() => handleFoodPackageSelect(pkg.id.toString())}
+                        className={`cursor-pointer border-2 rounded-xl p-4 transition-all ${
+                          formData.foodPackageId === pkg.id.toString()
+                            ? 'border-purple-600 bg-purple-50 shadow-lg'
+                            : 'border-gray-300 hover:border-purple-400'
+                        }`}
+                      >
+                        <h4 className="font-bold text-lg mb-2">{pkg.name}</h4>
+                        <p className="text-2xl font-bold text-purple-600 mb-2">৳{pkg.pricePerPerson}<span className="text-sm">/person</span></p>
+                        <p className="text-sm text-gray-600 mb-2">{pkg.description}</p>
+                        <div className="text-xs text-gray-500">
+                          {pkg.items.slice(0, 3).join(', ')}...
+                        </div>
+                        {formData.foodPackageId === pkg.id.toString() && (
+                          <div className="mt-3 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <label className="text-sm font-semibold">Qty:</label>
+                              <input
+                                type="number"
+                                min="1"
+                                value={foodPackageQuantity}
+                                onChange={(e) => handleFoodQuantityChange(Number(e.target.value))}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-20 px-2 py-1 border-2 border-purple-300 rounded focus:ring-2 focus:ring-purple-600"
+                              />
+                            </div>
+                            <div className="text-green-600 font-bold">
+                              ✓ Total: ৳{formData.foodCost.toLocaleString()}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Show message when Own/External is selected */}
+              {foodSource === 'own' && (
+                <div className="bg-green-50 border-2 border-green-300 rounded-xl p-6 text-center">
+                  <div className="text-4xl mb-3">🏠</div>
+                  <p className="text-lg font-semibold text-green-800 mb-2">Own/External Catering Selected</p>
+                  <p className="text-sm text-green-600">Guest will arrange their own food. No food package charges will be added.</p>
+                </div>
+              )}
             </div>
 
             {/* Add-on Services */}
@@ -665,20 +853,72 @@ export default function PremiumConventionBooking() {
             {/* Cost Summary */}
             <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-600 rounded-xl p-6 mb-6">
               <h3 className="font-bold text-lg mb-4">💰 Cost Breakdown:</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span>Hall Rent:</span>
+              <div className="space-y-3">
+                <div className="flex justify-between pb-2 border-b border-purple-200">
+                  <span className="font-semibold">Hall Rent:</span>
                   <span className="font-bold">৳{formData.hallRent.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Food Package (Qty: {foodPackageQuantity}):</span>
-                  <span className="font-bold">৳{formData.foodCost.toLocaleString()}</span>
+                
+                {/* Food Package Details */}
+                <div className="pb-2 border-b border-purple-200">
+                  <div className="flex justify-between mb-1">
+                    <span className="font-semibold">Food Package:</span>
+                    <span className="font-bold">৳{formData.foodCost.toLocaleString()}</span>
+                  </div>
+                  {formData.foodPackageId && foodPackages.length > 0 && (() => {
+                    const selectedPackage = foodPackages.find(p => p.id.toString() === formData.foodPackageId);
+                    return selectedPackage ? (
+                      <div className="ml-4 text-sm text-gray-600">
+                        <div className="flex justify-between">
+                          <span>• {selectedPackage.name}</span>
+                        </div>
+                        <div className="flex justify-between mt-1">
+                          <span className="ml-2">Qty: {foodPackageQuantity} × ৳{selectedPackage.pricePerPerson.toLocaleString()}/person</span>
+                          <span className="font-semibold">৳{formData.foodCost.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
+                  {!formData.foodPackageId && (
+                    <div className="ml-4 text-sm text-gray-500 italic">
+                      Own/External catering selected
+                    </div>
+                  )}
                 </div>
-                <div className="flex justify-between">
-                  <span>Add-ons ({selectedAddons.length} services):</span>
-                  <span className="font-bold">৳{formData.addonsCost.toLocaleString()}</span>
+                
+                {/* Add-ons Details */}
+                <div className="pb-2 border-b border-purple-200">
+                  <div className="flex justify-between mb-1">
+                    <span className="font-semibold">Add-on Services ({selectedAddons.length}):</span>
+                    <span className="font-bold">৳{formData.addonsCost.toLocaleString()}</span>
+                  </div>
+                  {selectedAddons.length > 0 ? (
+                    <div className="ml-4 text-sm text-gray-600 space-y-1">
+                      {selectedAddons.map(addonId => {
+                        const addon = addonServices.find(s => s.id === addonId);
+                        const qty = addonQuantities[addonId] || 1;
+                        const totalPrice = addon ? addon.price * qty : 0;
+                        return addon ? (
+                          <div key={addonId}>
+                            <div className="flex justify-between">
+                              <span>• {addon.name}</span>
+                            </div>
+                            <div className="flex justify-between mt-1">
+                              <span className="ml-2">Qty: {qty} × ৳{addon.price.toLocaleString()}/unit</span>
+                              <span className="font-semibold">৳{totalPrice.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        ) : null;
+                      })}
+                    </div>
+                  ) : (
+                    <div className="ml-4 text-sm text-gray-500 italic">
+                      No add-on services selected
+                    </div>
+                  )}
                 </div>
-                <div className="flex justify-between text-xl font-bold text-purple-600 border-t-2 pt-2 mt-2">
+                
+                <div className="flex justify-between text-xl font-bold text-purple-600 pt-2">
                   <span>Subtotal:</span>
                   <span>৳{(Number(formData.hallRent) + Number(formData.foodCost) + Number(formData.addonsCost)).toLocaleString()}</span>
                 </div>
@@ -712,32 +952,66 @@ export default function PremiumConventionBooking() {
             {/* Final Bill Summary */}
             <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-600 rounded-xl p-6 mb-6">
               <h3 className="font-bold text-xl mb-4">📋 Final Bill:</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span>Hall Rent:</span>
+              <div className="space-y-3">
+                <div className="flex justify-between pb-2 border-b border-purple-200">
+                  <span className="font-semibold">Hall Rent:</span>
                   <span className="font-bold">৳{formData.hallRent.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Food Cost:</span>
-                  <span className="font-bold">৳{formData.foodCost.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Add-on Services ({selectedAddons.length}):</span>
-                  <span className="font-bold">৳{formData.addonsCost.toLocaleString()}</span>
-                </div>
-                {selectedAddons.length > 0 && (
-                  <div className="ml-4 text-sm text-gray-600 space-y-1">
-                    {selectedAddons.map(addonId => {
-                      const addon = addonServices.find(s => s.id === addonId);
-                      return addon ? (
-                        <div key={addonId} className="flex justify-between">
-                          <span>• {addon.name}</span>
-                          <span>৳{addon.price.toLocaleString()}</span>
-                        </div>
-                      ) : null;
-                    })}
+                
+                {/* Food Cost Details */}
+                <div className="pb-2 border-b border-purple-200">
+                  <div className="flex justify-between mb-1">
+                    <span className="font-semibold">Food Cost:</span>
+                    <span className="font-bold">৳{formData.foodCost.toLocaleString()}</span>
                   </div>
-                )}
+                  {formData.foodPackageId && foodPackages.length > 0 && (() => {
+                    const selectedPackage = foodPackages.find(p => p.id.toString() === formData.foodPackageId);
+                    return selectedPackage ? (
+                      <div className="ml-4 text-sm text-gray-600">
+                        <div className="flex justify-between">
+                          <span>• {selectedPackage.name}</span>
+                        </div>
+                        <div className="flex justify-between mt-1">
+                          <span className="ml-2">Qty: {foodPackageQuantity} × ৳{selectedPackage.pricePerPerson.toLocaleString()}/person</span>
+                          <span className="font-semibold">৳{formData.foodCost.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
+                  {!formData.foodPackageId && (
+                    <div className="ml-4 text-sm text-gray-500 italic">
+                      Own/External catering
+                    </div>
+                  )}
+                </div>
+                
+                {/* Add-on Services Details */}
+                <div className="pb-2 border-b border-purple-200">
+                  <div className="flex justify-between mb-1">
+                    <span className="font-semibold">Add-on Services ({selectedAddons.length}):</span>
+                    <span className="font-bold">৳{formData.addonsCost.toLocaleString()}</span>
+                  </div>
+                  {selectedAddons.length > 0 && (
+                    <div className="ml-4 text-sm text-gray-600 space-y-2">
+                      {selectedAddons.map(addonId => {
+                        const addon = addonServices.find(s => s.id === addonId);
+                        const qty = addonQuantities[addonId] || 1;
+                        const totalPrice = addon ? addon.price * qty : 0;
+                        return addon ? (
+                          <div key={addonId}>
+                            <div className="flex justify-between">
+                              <span>• {addon.name}</span>
+                            </div>
+                            <div className="flex justify-between mt-1">
+                              <span className="ml-2">Qty: {qty} × ৳{addon.price.toLocaleString()}/unit</span>
+                              <span className="font-semibold">৳{totalPrice.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
+                </div>
                 <div className="flex justify-between text-lg border-t-2 pt-2">
                   <span>Subtotal:</span>
                   <span className="font-bold">৳{calculateSubtotal().toLocaleString('en-BD')}</span>

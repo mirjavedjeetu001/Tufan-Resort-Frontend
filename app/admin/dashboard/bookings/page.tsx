@@ -65,7 +65,14 @@ export default function BookingsManagement() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [checkInDateFrom, setCheckInDateFrom] = useState('');
+  const [checkInDateTo, setCheckInDateTo] = useState('');
+  const [checkOutDateFrom, setCheckOutDateFrom] = useState('');
+  const [checkOutDateTo, setCheckOutDateTo] = useState('');
+  const [bookingDateFrom, setBookingDateFrom] = useState('');
+  const [bookingDateTo, setBookingDateTo] = useState('');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showTimeEditModal, setShowTimeEditModal] = useState(false);
@@ -355,11 +362,31 @@ export default function BookingsManagement() {
 
   const filteredBookings = bookings.filter(booking => {
     const matchesStatus = statusFilter === 'all' || booking.status === statusFilter;
+    const matchesPayment = paymentFilter === 'all' || booking.paymentStatus === paymentFilter;
     const matchesSearch = 
       booking.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       booking.customerPhone.includes(searchTerm) ||
       booking.room?.roomNumber?.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesStatus && matchesSearch;
+    
+    // Check-in date filter
+    const checkInDate = new Date(booking.checkInDate);
+    const matchesCheckInFrom = !checkInDateFrom || checkInDate >= new Date(checkInDateFrom);
+    const matchesCheckInTo = !checkInDateTo || checkInDate <= new Date(checkInDateTo);
+    
+    // Check-out date filter
+    const checkOutDate = new Date(booking.checkOutDate);
+    const matchesCheckOutFrom = !checkOutDateFrom || checkOutDate >= new Date(checkOutDateFrom);
+    const matchesCheckOutTo = !checkOutDateTo || checkOutDate <= new Date(checkOutDateTo);
+    
+    // Booking date filter
+    const bookingDate = new Date(booking.createdAt);
+    const matchesBookingFrom = !bookingDateFrom || bookingDate >= new Date(bookingDateFrom);
+    const matchesBookingTo = !bookingDateTo || bookingDate <= new Date(bookingDateTo);
+    
+    return matchesStatus && matchesPayment && matchesSearch && 
+           matchesCheckInFrom && matchesCheckInTo &&
+           matchesCheckOutFrom && matchesCheckOutTo &&
+           matchesBookingFrom && matchesBookingTo;
   });
 
   const stats = {
@@ -451,20 +478,28 @@ export default function BookingsManagement() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-md p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+        <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+          Filters & Search
+        </h3>
+        
+        {/* Search and Status Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Search</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">🔍 Search</label>
             <input
               type="text"
-              placeholder="Search by name, phone, or room number..."
+              placeholder="Name, phone, or room number..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Filter by Status</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">📋 Booking Status</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -477,6 +512,112 @@ export default function BookingsManagement() {
               <option value="checked_out">Checked Out</option>
               <option value="cancelled">Cancelled</option>
             </select>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">💰 Payment Status</label>
+            <select
+              value={paymentFilter}
+              onChange={(e) => setPaymentFilter(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            >
+              <option value="all">All Payments</option>
+              <option value="pending">Pending</option>
+              <option value="partial">Partial</option>
+              <option value="paid">Paid</option>
+              <option value="refunded">Refunded</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Date Filters */}
+        <div className="border-t pt-4">
+          <h4 className="text-sm font-bold text-gray-700 mb-3">📅 Date Filters</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Check-in Date Filter */}
+            <div className="bg-blue-50 p-3 rounded-lg">
+              <label className="block text-xs font-bold text-blue-800 mb-2">Check-In Date Range</label>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="date"
+                  value={checkInDateFrom}
+                  onChange={(e) => setCheckInDateFrom(e.target.value)}
+                  className="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:ring-2 focus:ring-blue-500"
+                  placeholder="From"
+                />
+                <input
+                  type="date"
+                  value={checkInDateTo}
+                  onChange={(e) => setCheckInDateTo(e.target.value)}
+                  className="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:ring-2 focus:ring-blue-500"
+                  placeholder="To"
+                />
+              </div>
+            </div>
+
+            {/* Check-out Date Filter */}
+            <div className="bg-green-50 p-3 rounded-lg">
+              <label className="block text-xs font-bold text-green-800 mb-2">Check-Out Date Range</label>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="date"
+                  value={checkOutDateFrom}
+                  onChange={(e) => setCheckOutDateFrom(e.target.value)}
+                  className="w-full px-2 py-1 text-sm border border-green-300 rounded focus:ring-2 focus:ring-green-500"
+                  placeholder="From"
+                />
+                <input
+                  type="date"
+                  value={checkOutDateTo}
+                  onChange={(e) => setCheckOutDateTo(e.target.value)}
+                  className="w-full px-2 py-1 text-sm border border-green-300 rounded focus:ring-2 focus:ring-green-500"
+                  placeholder="To"
+                />
+              </div>
+            </div>
+
+            {/* Booking Date Filter */}
+            <div className="bg-purple-50 p-3 rounded-lg">
+              <label className="block text-xs font-bold text-purple-800 mb-2">Booking Date Range</label>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="date"
+                  value={bookingDateFrom}
+                  onChange={(e) => setBookingDateFrom(e.target.value)}
+                  className="w-full px-2 py-1 text-sm border border-purple-300 rounded focus:ring-2 focus:ring-purple-500"
+                  placeholder="From"
+                />
+                <input
+                  type="date"
+                  value={bookingDateTo}
+                  onChange={(e) => setBookingDateTo(e.target.value)}
+                  className="w-full px-2 py-1 text-sm border border-purple-300 rounded focus:ring-2 focus:ring-purple-500"
+                  placeholder="To"
+                />
+              </div>
+            </div>
+          </div>
+          
+          {/* Clear Filters Button */}
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setStatusFilter('all');
+                setPaymentFilter('all');
+                setCheckInDateFrom('');
+                setCheckInDateTo('');
+                setCheckOutDateFrom('');
+                setCheckOutDateTo('');
+                setBookingDateFrom('');
+                setBookingDateTo('');
+              }}
+              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Clear All Filters
+            </button>
           </div>
         </div>
       </div>
@@ -1485,11 +1626,37 @@ export default function BookingsManagement() {
                 
                 if (isPDF) {
                   return (
-                    <iframe
-                      src={selectedDocument.url}
-                      className="w-full h-[calc(90vh-160px)] bg-white rounded-lg shadow-inner"
-                      title={selectedDocument.title}
-                    />
+                    <div className="bg-white rounded-lg overflow-hidden">
+                      <object
+                        data={selectedDocument.url}
+                        type="application/pdf"
+                        className="w-full h-[calc(90vh-160px)]"
+                        style={{ minHeight: '600px' }}
+                      >
+                        <iframe
+                          src={`${selectedDocument.url}#toolbar=1&navpanes=1&scrollbar=1`}
+                          className="w-full h-[calc(90vh-160px)]"
+                          style={{ minHeight: '600px', border: 'none' }}
+                          title={selectedDocument.title}
+                        >
+                          <div className="p-8 text-center">
+                            <svg className="w-16 h-16 mx-auto mb-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <p className="font-semibold text-gray-700">Unable to display PDF</p>
+                            <p className="text-sm text-gray-600 mt-2">Your browser doesn't support PDF viewing</p>
+                            <a
+                              href={selectedDocument.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-block mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+                            >
+                              Open in New Tab
+                            </a>
+                          </div>
+                        </iframe>
+                      </object>
+                    </div>
                   );
                 } else if (isImage) {
                   return (
@@ -1532,27 +1699,41 @@ export default function BookingsManagement() {
             </div>
 
             <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-t">
-              <a
-                href={selectedDocument.url}
-                download
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors"
+              <div className="flex gap-3">
+                <a
+                  href={selectedDocument.url}
+                  download
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download
+                </a>
+                <a
+                  href={selectedDocument.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  Open in New Tab
+                </a>
+              </div>
+              <button
+                onClick={() => {
+                  setShowDocumentModal(false);
+                  setSelectedDocument(null);
+                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Download
-              </a>
-              <a
-                href={selectedDocument.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-                Open in New Tab
-              </a>
+                Close
+              </button>
             </div>
           </div>
         </div>

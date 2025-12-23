@@ -128,9 +128,8 @@ export default function ConventionBookingsReport() {
 
     const timeSlotCounts = {
       morning: filteredBookings.filter(b => b.timeSlot === 'morning').length,
-      afternoon: filteredBookings.filter(b => b.timeSlot === 'afternoon').length,
-      evening: filteredBookings.filter(b => b.timeSlot === 'evening').length,
-      'full-day': filteredBookings.filter(b => b.timeSlot === 'full-day').length,
+      night: filteredBookings.filter(b => b.timeSlot === 'night').length,
+      custom: filteredBookings.filter(b => b.timeSlot === 'custom').length,
     };
 
     const eventTypeCounts: { [key: string]: number } = {};
@@ -309,9 +308,8 @@ export default function ConventionBookingsReport() {
             >
               <option value="all">All Slots</option>
               <option value="morning">Morning</option>
-              <option value="afternoon">Afternoon</option>
-              <option value="evening">Evening</option>
-              <option value="full-day">Full Day</option>
+              <option value="night">Night</option>
+              <option value="custom">Custom Time</option>
             </select>
           </div>
         </div>

@@ -7,10 +7,12 @@ import Modal from '@/components/Modal';
 import { useModal } from '@/hooks/useModal';
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const { modalState, showModal, closeModal } = useModal();
   const [metrics, setMetrics] = useState<any>(null);
   const [rooms, setRooms] = useState([]);
   const [recentBookings, setRecentBookings] = useState([]);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   // Room Availability Search
   const [roomSearchDates, setRoomSearchDates] = useState({ checkIn: '', checkOut: '' });
@@ -26,8 +28,15 @@ export default function AdminDashboard() {
   const [showHallResults, setShowHallResults] = useState(false);
 
   useEffect(() => {
+    // Check authentication first
+    const token = localStorage.getItem('token');
+    if (!token) {
+      router.push('/admin');
+      return;
+    }
+    setIsAuthenticated(true);
     fetchDashboardData();
-  }, []);
+  }, [router]);
 
   const fetchDashboardData = async () => {
     try {
@@ -42,10 +51,24 @@ export default function AdminDashboard() {
       setRooms(roomsRes.data);
       setRecentBookings(bookingsRes.data.slice(0, 5));
       setAllHalls(hallsRes.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
+      if (error?.response?.status === 401) {
+        // Token expired or invalid
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        router.push('/admin');
+      }
     }
   };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin text-4xl">⏳</div>
+      </div>
+    );
+  }
 
   const searchRoomAvailability = async () => {
     if (!roomSearchDates.checkIn || !roomSearchDates.checkOut) {
@@ -490,9 +513,7 @@ export default function AdminDashboard() {
               className="w-full px-4 py-3 rounded-xl border border-accent/20 bg-white/80 text-gray-900 shadow-sm focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
             >
               <option value="morning">Morning</option>
-              <option value="afternoon">Afternoon</option>
-              <option value="evening">Evening</option>
-              <option value="fullday">Full Day</option>
+              <option value="night">Night</option>
             </select>
           </div>
           <div className="flex items-end">

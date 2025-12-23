@@ -24,6 +24,7 @@ interface ConventionBooking {
   paymentStatus: string;
   status: string;
   programStatus: string;
+  createdAt: string;
 }
 
 export default function ConventionBookingsList() {
@@ -31,6 +32,13 @@ export default function ConventionBookingsList() {
   const [bookings, setBookings] = useState<ConventionBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');
+  const [paymentFilter, setPaymentFilter] = useState('all');
+  const [programFilter, setProgramFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [eventDateFrom, setEventDateFrom] = useState('');
+  const [eventDateTo, setEventDateTo] = useState('');
+  const [bookingDateFrom, setBookingDateFrom] = useState('');
+  const [bookingDateTo, setBookingDateTo] = useState('');
 
   useEffect(() => {
     fetchBookings();
@@ -99,9 +107,30 @@ export default function ConventionBookingsList() {
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
-  const filteredBookings = bookings.filter(b => 
-    filterStatus === 'all' || b.status === filterStatus
-  );
+  const filteredBookings = bookings.filter(booking => {
+    const matchesStatus = filterStatus === 'all' || booking.status === filterStatus;
+    const matchesPayment = paymentFilter === 'all' || booking.paymentStatus === paymentFilter;
+    const matchesProgram = programFilter === 'all' || booking.programStatus === programFilter;
+    const matchesSearch = 
+      booking.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      booking.customerPhone.includes(searchTerm) ||
+      booking.organizationName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      booking.hall?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Event date filter
+    const eventDate = new Date(booking.eventDate);
+    const matchesEventFrom = !eventDateFrom || eventDate >= new Date(eventDateFrom);
+    const matchesEventTo = !eventDateTo || eventDate <= new Date(eventDateTo);
+    
+    // Booking date filter
+    const bookingDate = new Date(booking.createdAt);
+    const matchesBookingFrom = !bookingDateFrom || bookingDate >= new Date(bookingDateFrom);
+    const matchesBookingTo = !bookingDateTo || bookingDate <= new Date(bookingDateTo);
+    
+    return matchesStatus && matchesPayment && matchesProgram && matchesSearch && 
+           matchesEventFrom && matchesEventTo &&
+           matchesBookingFrom && matchesBookingTo;
+  });
 
   if (loading) {
     return (
@@ -130,22 +159,138 @@ export default function ConventionBookingsList() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow p-4 mb-6">
-        <div className="flex items-center gap-4">
-          <span className="font-semibold">Filter by Status:</span>
-          {['all', 'pending', 'confirmed', 'completed', 'cancelled'].map(status => (
-            <button
-              key={status}
-              onClick={() => setFilterStatus(status)}
-              className={`px-4 py-2 rounded-lg font-semibold capitalize ${
-                filterStatus === status
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+      <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+        <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+          Filters & Search
+        </h3>
+        
+        {/* Search and Status Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">🔍 Search</label>
+            <input
+              type="text"
+              placeholder="Name, phone, hall, or organization..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">📋 Booking Status</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
             >
-              {status}
+              <option value="all">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">💰 Payment Status</label>
+            <select
+              value={paymentFilter}
+              onChange={(e) => setPaymentFilter(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+            >
+              <option value="all">All Payments</option>
+              <option value="pending">Pending</option>
+              <option value="partial">Partial</option>
+              <option value="paid">Paid</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">🎯 Program Status</label>
+            <select
+              value={programFilter}
+              onChange={(e) => setProgramFilter(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+            >
+              <option value="all">All Programs</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="running">Running</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Date Filters */}
+        <div className="border-t pt-4">
+          <h4 className="text-sm font-bold text-gray-700 mb-3">📅 Date Filters</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Event Date Filter */}
+            <div className="bg-purple-50 p-3 rounded-lg">
+              <label className="block text-xs font-bold text-purple-800 mb-2">Event Date Range</label>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="date"
+                  value={eventDateFrom}
+                  onChange={(e) => setEventDateFrom(e.target.value)}
+                  className="w-full px-2 py-1 text-sm border border-purple-300 rounded focus:ring-2 focus:ring-purple-500"
+                  placeholder="From"
+                />
+                <input
+                  type="date"
+                  value={eventDateTo}
+                  onChange={(e) => setEventDateTo(e.target.value)}
+                  className="w-full px-2 py-1 text-sm border border-purple-300 rounded focus:ring-2 focus:ring-purple-500"
+                  placeholder="To"
+                />
+              </div>
+            </div>
+
+            {/* Booking Date Filter */}
+            <div className="bg-pink-50 p-3 rounded-lg">
+              <label className="block text-xs font-bold text-pink-800 mb-2">Booking Date Range</label>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="date"
+                  value={bookingDateFrom}
+                  onChange={(e) => setBookingDateFrom(e.target.value)}
+                  className="w-full px-2 py-1 text-sm border border-pink-300 rounded focus:ring-2 focus:ring-pink-500"
+                  placeholder="From"
+                />
+                <input
+                  type="date"
+                  value={bookingDateTo}
+                  onChange={(e) => setBookingDateTo(e.target.value)}
+                  className="w-full px-2 py-1 text-sm border border-pink-300 rounded focus:ring-2 focus:ring-pink-500"
+                  placeholder="To"
+                />
+              </div>
+            </div>
+          </div>
+          
+          {/* Clear Filters Button */}
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setFilterStatus('all');
+                setPaymentFilter('all');
+                setProgramFilter('all');
+                setEventDateFrom('');
+                setEventDateTo('');
+                setBookingDateFrom('');
+                setBookingDateTo('');
+              }}
+              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Clear All Filters
             </button>
-          ))}
+          </div>
         </div>
       </div>
 

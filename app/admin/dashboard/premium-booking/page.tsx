@@ -30,6 +30,8 @@ export default function PremiumBookingPage() {
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [vatPercentage, setVatPercentage] = useState(15); // Default 15%
   const [customerFound, setCustomerFound] = useState(false);
+  const [availableRooms, setAvailableRooms] = useState<any[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
   
   const [formData, setFormData] = useState({
     // Room Selection
@@ -127,7 +129,7 @@ export default function PremiumBookingPage() {
   };
 
   const checkCustomerByPhone = async (phone: string) => {
-    if (!phone || phone.length < 10) {
+    if (!phone || phone.length < 3) {
       setCustomerFound(false);
       return;
     }
@@ -135,22 +137,22 @@ export default function PremiumBookingPage() {
     try {
       const response = await api.get(`/bookings/customer/${phone}`);
       if (response.data) {
-        // Auto-fill customer details
+        // Auto-fill customer details - ensure all values are strings, not undefined/null
         setFormData(prev => ({
           ...prev,
-          customerName: response.data.guestName || prev.customerName,
-          customerNid: response.data.guestNid || prev.customerNid,
-          customerEmail: response.data.guestEmail || prev.customerEmail,
-          customerPhone: response.data.guestPhone || prev.customerPhone,
-          customerAddress: response.data.guestAddress || prev.customerAddress,
+          customerName: response.data.guestName || prev.customerName || '',
+          customerNid: response.data.guestNid || prev.customerNid || '',
+          customerEmail: response.data.guestEmail || prev.customerEmail || '',
+          customerPhone: response.data.guestPhone || prev.customerPhone || '',
+          customerAddress: response.data.guestAddress || prev.customerAddress || '',
+          passportNumber: response.data.passportNumber || prev.passportNumber || '',
         }));
         setCustomerFound(true);
-        showModal('✅ Customer found! Details auto-filled', 'success');
+        showModal('✅ Existing customer found! Details auto-filled', 'success');
       }
     } catch (error: any) {
       setCustomerFound(false);
-      console.log('Customer not found:', error.response?.status);
-      // Silently fail - customer not found is normal
+      showModal('📝 New customer - Please fill in the details', 'info');
     }
   };
 
@@ -247,6 +249,35 @@ export default function PremiumBookingPage() {
       }
     } catch (error) {
       console.error('Error checking availability:', error);
+    }
+  };
+
+  const checkAvailableRooms = async (checkIn: string, checkOut: string) => {
+    if (!checkIn || !checkOut) {
+      setAvailableRooms([]);
+      return;
+    }
+
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    
+    if (checkOutDate <= checkInDate) {
+      showModal('Check-out date must be after check-in date', 'warning');
+      setAvailableRooms([]);
+      return;
+    }
+
+    setLoadingRooms(true);
+    try {
+      const response = await axios.get(
+        `http://localhost:3001/rooms/available?checkIn=${checkIn}&checkOut=${checkOut}`
+      );
+      setAvailableRooms(response.data);
+    } catch (error) {
+      console.error('Error checking available rooms:', error);
+      setAvailableRooms([]);
+    } finally {
+      setLoadingRooms(false);
     }
   };
 
@@ -408,8 +439,8 @@ export default function PremiumBookingPage() {
     <div className="p-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-[#006747] to-[#f4a425] rounded-2xl p-8 mb-6 text-white">
-        <h1 className="text-3xl font-bold mb-2">🏨 Premium Room Booking</h1>
-        <p className="text-green-50">Create a new room booking with advanced features</p>
+        <h1 className="text-3xl font-bold mb-2">🏨 Room Booking</h1>
+        <p className="text-green-50">Create a new room booking</p>
       </div>
 
       {/* Progress Steps */}
@@ -448,113 +479,158 @@ export default function PremiumBookingPage() {
         {/* Step 1: Room Selection */}
         {step === 1 && (
           <div className="bg-white rounded-2xl shadow-xl p-8">
-            <h2 className="text-2xl font-bold mb-6 text-[#006747]">🔍 Search & Select Room</h2>
+            <h2 className="text-2xl font-bold mb-6 text-[#006747]">�️ Select Room & Dates</h2>
             
-            {/* Room Number Search */}
-            <div className="mb-6">
-              <label className="block text-gray-700 font-semibold mb-2">
-                Search by Room Number
-              </label>
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  value={roomSearchQuery}
-                  onChange={(e) => setRoomSearchQuery(e.target.value)}
-                  placeholder="Enter room number (e.g., R001)"
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006747]"
-                />
-                <button
-                  type="button"
-                  onClick={handleRoomSearch}
-                  className="bg-[#006747] text-white px-6 py-3 rounded-lg hover:bg-[#005030] font-semibold"
-                >
-                  🔍 Search
-                </button>
-              </div>
-            </div>
-
-            {/* Display Searched Room */}
-            {searchedRoom && (
-              <div className="bg-green-50 border-2 border-green-600 rounded-xl p-6 mb-6">
-                <h3 className="text-xl font-bold text-green-900 mb-3">✅ Room Found!</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-gray-600">Room Number:</span>
-                    <span className="ml-2 font-bold">{searchedRoom.roomNumber}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Room Name:</span>
-                    <span className="ml-2 font-bold">{searchedRoom.name}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Type:</span>
-                    <span className="ml-2 font-bold">{searchedRoom.type}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Price:</span>
-                    <span className="ml-2 font-bold">৳{searchedRoom.pricePerNight}/night</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Max Guests:</span>
-                    <span className="ml-2 font-bold">{searchedRoom.maxGuests}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Status:</span>
-                    <span className={`ml-2 font-bold ${searchedRoom.status === 'available' ? 'text-green-600' : 'text-red-600'}`}>
-                      {searchedRoom.status.toUpperCase()}
-                    </span>
-                  </div>
+            {/* Date Selection First */}
+            <div className="bg-green-50 border-2 border-green-300 rounded-xl p-6 mb-6">
+              <h3 className="text-lg font-bold text-green-800 mb-4">📅 First: Select Check-in & Check-out Dates</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2">Check-in Date *</label>
+                  <input
+                    type="date"
+                    value={formData.checkInDate}
+                    onChange={(e) => {
+                      setFormData({ ...formData, checkInDate: e.target.value });
+                      if (e.target.value && formData.checkOutDate) {
+                        checkAvailableRooms(e.target.value, formData.checkOutDate);
+                      }
+                    }}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full px-4 py-3 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-[#006747]"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2">Check-out Date *</label>
+                  <input
+                    type="date"
+                    value={formData.checkOutDate}
+                    onChange={(e) => {
+                      setFormData({ ...formData, checkOutDate: e.target.value });
+                      if (formData.checkInDate && e.target.value) {
+                        checkAvailableRooms(formData.checkInDate, e.target.value);
+                      }
+                    }}
+                    min={formData.checkInDate || new Date().toISOString().split('T')[0]}
+                    className="w-full px-4 py-3 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-[#006747]"
+                    required
+                  />
                 </div>
               </div>
-            )}
-
-            {/* Date Selection */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <div>
-                <label className="block text-gray-700 font-semibold mb-2">Check-in Date</label>
-                <input
-                  type="date"
-                  value={formData.checkInDate}
-                  onChange={(e) => setFormData({ ...formData, checkInDate: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006747]"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-gray-700 font-semibold mb-2">Check-out Date</label>
-                <input
-                  type="date"
-                  value={formData.checkOutDate}
-                  onChange={(e) => setFormData({ ...formData, checkOutDate: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006747]"
-                  required
-                />
-              </div>
             </div>
 
-            {/* AC/Non-AC Selection */}
+            {/* Available Rooms Display */}
+            <div>
+              <label className="block text-gray-700 font-semibold mb-2">
+                Select Available Room *
+                {formData.checkInDate && formData.checkOutDate && (
+                  <span className="ml-2 text-sm text-green-600">✅ Showing available rooms for selected dates</span>
+                )}
+              </label>
+              
+              {!formData.checkInDate || !formData.checkOutDate ? (
+                <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 text-center">
+                  <p className="text-yellow-800 font-semibold">⬆️ Please select Check-in and Check-out dates first</p>
+                </div>
+              ) : loadingRooms ? (
+                <div className="bg-gray-50 border-2 border-gray-300 rounded-lg p-4 text-center">
+                  <p className="text-gray-600">⏳ Checking room availability...</p>
+                </div>
+              ) : availableRooms.length === 0 ? (
+                <div className="bg-red-50 border-2 border-red-300 rounded-lg p-6 text-center">
+                  <p className="text-red-800 font-semibold text-lg">❌ No rooms available for selected dates</p>
+                  <p className="text-red-600 text-sm mt-2">Please choose different dates</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {availableRooms.map(room => (
+                    <div
+                      key={room.id}
+                      onClick={() => {
+                        setSearchedRoom(room);
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          roomId: room.id, 
+                          roomNumber: room.roomNumber,
+                          acPreference: room.hasAC ? 'ac' : 'non-ac'
+                        }));
+                        // Calculate total based on dates and room price
+                        const checkIn = new Date(formData.checkInDate);
+                        const checkOut = new Date(formData.checkOutDate);
+                        const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+                        const totalAmount = nights * (room.pricePerNight || 0);
+                        setFormData(prev => ({ ...prev, totalAmount }));
+                      }}
+                      className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${
+                        formData.roomId === room.id.toString()
+                          ? 'border-green-600 bg-green-50 shadow-lg'
+                          : 'border-gray-300 hover:border-green-400'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h4 className="font-bold text-lg">{room.roomNumber}</h4>
+                          <p className="text-sm text-gray-600">{room.name}</p>
+                        </div>
+                        {formData.roomId === room.id.toString() && (
+                          <span className="text-green-600 text-xl">✓</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600 mb-1">Type: {room.type}</p>
+                      <p className="text-sm text-gray-600 mb-1">Max: {room.maxGuests} guests</p>
+                      {room.hasAC && (
+                        <p className="text-xs text-blue-600 mb-2">❄️ AC Available</p>
+                      )}
+                      <p className="text-lg font-bold text-[#006747]">৳{room.pricePerNight.toLocaleString()}/night</p>
+                      <span className="inline-block mt-2 px-3 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full">
+                        ✅ Available
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* AC/Non-AC Selection - Show only if room selected and has AC */}
             {searchedRoom && searchedRoom.hasAC && (
-              <div className="mb-6">
-                <label className="block text-gray-700 font-semibold mb-2">❄️ AC Preference</label>
+              <div className="mt-6 p-4 bg-blue-50 border-2 border-blue-300 rounded-xl">
+                <label className="block text-gray-700 font-semibold mb-3">❄️ AC Preference</label>
                 <div className="flex gap-4">
-                  <label className="flex items-center cursor-pointer bg-blue-50 border-2 border-blue-300 rounded-lg px-6 py-3 hover:bg-blue-100 transition">
+                  <label className="flex items-center cursor-pointer bg-blue-100 border-2 border-blue-400 rounded-lg px-6 py-3 hover:bg-blue-200 transition flex-1">
                     <input
                       type="radio"
                       name="acPreference"
                       value="ac"
                       checked={formData.acPreference === 'ac'}
-                      onChange={(e) => setFormData({ ...formData, acPreference: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, acPreference: e.target.value });
+                        // Recalculate total with AC price
+                        const checkIn = new Date(formData.checkInDate);
+                        const checkOut = new Date(formData.checkOutDate);
+                        const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+                        const totalAmount = nights * (searchedRoom.acPrice || searchedRoom.pricePerNight);
+                        setFormData(prev => ({ ...prev, totalAmount }));
+                      }}
                       className="mr-3 w-5 h-5"
                     />
                     <span className="font-semibold">❄️ With AC (৳{searchedRoom.acPrice || searchedRoom.pricePerNight}/night)</span>
                   </label>
-                  <label className="flex items-center cursor-pointer bg-green-50 border-2 border-green-300 rounded-lg px-6 py-3 hover:bg-green-100 transition">
+                  <label className="flex items-center cursor-pointer bg-green-100 border-2 border-green-400 rounded-lg px-6 py-3 hover:bg-green-200 transition flex-1">
                     <input
                       type="radio"
                       name="acPreference"
                       value="non-ac"
                       checked={formData.acPreference === 'non-ac'}
-                      onChange={(e) => setFormData({ ...formData, acPreference: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, acPreference: e.target.value });
+                        // Recalculate total with Non-AC price
+                        const checkIn = new Date(formData.checkInDate);
+                        const checkOut = new Date(formData.checkOutDate);
+                        const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+                        const totalAmount = nights * (searchedRoom.nonAcPrice || searchedRoom.pricePerNight);
+                        setFormData(prev => ({ ...prev, totalAmount }));
+                      }}
                       className="mr-3 w-5 h-5"
                     />
                     <span className="font-semibold">🌿 Non-AC (৳{searchedRoom.nonAcPrice || searchedRoom.pricePerNight}/night)</span>
@@ -563,54 +639,27 @@ export default function PremiumBookingPage() {
               </div>
             )}
 
-            {/* Check Availability Button */}
+            {/* Summary */}
             {searchedRoom && formData.checkInDate && formData.checkOutDate && (
-              <button
-                type="button"
-                onClick={checkAvailability}
-                className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-semibold mb-6"
-              >
-                🔍 Check Availability
-              </button>
-            )}
-
-            {/* Availability Status */}
-            {availability && (
-              <div className={`border-2 rounded-xl p-6 mb-6 ${
-                availability.available ? 'bg-green-50 border-green-600' : 'bg-red-50 border-red-600'
-              }`}>
-                <h3 className={`text-xl font-bold mb-2 ${
-                  availability.available ? 'text-green-900' : 'text-red-900'
-                }`}>
-                  {availability.available ? '✅ Room is Available!' : '❌ Room is Not Available'}
-                </h3>
-                <p className={availability.available ? 'text-green-700' : 'text-red-700'}>
-                  {availability.message}
-                </p>
+              <div className="mt-6 bg-purple-50 border-2 border-purple-300 rounded-xl p-6">
+                <h3 className="font-bold text-lg text-purple-800 mb-3">📋 Booking Summary</h3>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div><span className="text-gray-600">Room:</span> <span className="font-bold">{searchedRoom.roomNumber} - {searchedRoom.name}</span></div>
+                  <div><span className="text-gray-600">Nights:</span> <span className="font-bold">{Math.ceil((new Date(formData.checkOutDate).getTime() - new Date(formData.checkInDate).getTime()) / (1000 * 60 * 60 * 24))}</span></div>
+                  <div><span className="text-gray-600">Check-in:</span> <span className="font-bold">{new Date(formData.checkInDate).toLocaleDateString()}</span></div>
+                  <div><span className="text-gray-600">Check-out:</span> <span className="font-bold">{new Date(formData.checkOutDate).toLocaleDateString()}</span></div>
+                  <div className="col-span-2"><span className="text-gray-600">Total Amount:</span> <span className="font-bold text-lg text-purple-600">৳{formData.totalAmount.toLocaleString()}</span></div>
+                </div>
               </div>
             )}
 
-            {/* Number of Guests */}
-            <div className="mb-6">
-              <label className="block text-gray-700 font-semibold mb-2">Number of Guests</label>
-              <input
-                type="number"
-                value={formData.numberOfGuests}
-                onChange={(e) => setFormData({ ...formData, numberOfGuests: Number(e.target.value) })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006747]"
-                min="1"
-                required
-              />
-            </div>
-
-            {/* Next Button */}
             <button
               type="button"
-              onClick={() => availability?.available && setStep(2)}
-              disabled={!availability?.available}
-              className={`w-full px-6 py-4 rounded-lg font-bold text-lg ${
-                availability?.available
-                  ? 'bg-gradient-to-r from-[#006747] to-[#f4a425] text-white hover:shadow-lg'
+              onClick={() => setStep(2)}
+              disabled={!searchedRoom || !formData.checkInDate || !formData.checkOutDate}
+              className={`w-full mt-6 py-4 rounded-lg font-bold text-lg transition ${
+                searchedRoom && formData.checkInDate && formData.checkOutDate
+                  ? 'bg-[#006747] text-white hover:bg-[#005030]'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
@@ -624,22 +673,62 @@ export default function PremiumBookingPage() {
           <div className="bg-white rounded-2xl shadow-xl p-8">
             <h2 className="text-2xl font-bold mb-6 text-[#006747]">👤 Guest Information</h2>
             
+            {/* Customer Search Section */}
+            <div className="bg-blue-50 border-2 border-blue-300 rounded-xl p-6 mb-6">
+              <h3 className="text-lg font-bold text-blue-800 mb-3">🔍 Search Existing Customer</h3>
+              <p className="text-sm text-blue-600 mb-4">Search by Phone Number, NID, or Passport Number. If found, details will auto-fill.</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2 text-sm">📱 Phone Number</label>
+                  <input
+                    type="tel"
+                    placeholder="01XXXXXXXXX"
+                    onBlur={(e) => checkCustomerByPhone(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2 text-sm">🆔 NID Number</label>
+                  <input
+                    type="text"
+                    placeholder="Enter NID"
+                    onBlur={(e) => checkCustomerByPhone(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2 text-sm">🛂 Passport Number</label>
+                  <input
+                    type="text"
+                    placeholder="Enter Passport"
+                    onBlur={(e) => checkCustomerByPhone(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+              </div>
+              
+              {customerFound && (
+                <div className="mt-4 bg-green-100 border-2 border-green-500 rounded-lg p-4 text-center">
+                  <p className="text-green-800 font-bold text-lg">✅ Existing Customer Found!</p>
+                  <p className="text-green-600 text-sm mt-1">Details have been auto-filled below</p>
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
                 <label className="block text-gray-700 font-semibold mb-2">
-                  📱 Phone Number * 
-                  {customerFound && <span className="ml-2 text-green-600 text-sm font-bold">✅ Customer Found - Details Auto-Filled!</span>}
+                  📱 Phone Number *
                 </label>
                 <input
                   type="tel"
                   value={formData.customerPhone}
                   onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
-                  onBlur={(e) => checkCustomerByPhone(e.target.value)}
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006747] focus:border-[#006747]"
-                  placeholder="Enter phone number first to auto-fill customer details"
+                  placeholder="01XXXXXXXXX"
                   required
                 />
-                <p className="text-sm text-gray-500 mt-1">💡 Enter phone number and press Tab - if customer exists, details will auto-fill</p>
               </div>
 
               <div>
