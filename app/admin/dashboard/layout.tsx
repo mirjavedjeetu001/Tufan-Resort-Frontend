@@ -152,7 +152,7 @@ export default function AdminLayout({
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-teal-50">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600 font-semibold">Loading Dashboard...</p>
@@ -162,9 +162,9 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gray-50">
       {/* Top Navigation Bar */}
-      <nav className="bg-gradient-to-r from-primary-600 via-primary-500 to-primary-700 text-white shadow-xl sticky top-0 z-50">
+      <nav className="bg-gradient-to-r from-primary-600 to-primary-700 text-white shadow-lg sticky top-0 z-50">
         <div className="px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2 sm:gap-4">
             <button
@@ -177,7 +177,7 @@ export default function AdminLayout({
             </button>
             <div>
               <h1 className="text-lg sm:text-2xl font-bold">🏞️ {resortName}</h1>
-              <p className="text-xs text-green-100 hidden sm:block">Resort & Convention Hall Management System</p>
+              <p className="text-xs text-accent-200 hidden sm:block">Resort & Convention Hall Management System</p>
             </div>
           </div>
           
@@ -185,27 +185,27 @@ export default function AdminLayout({
             <Link
               href="/"
               target="_blank"
-              className="hidden md:flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-all"
+              className="hidden md:flex items-center gap-2 bg-white text-primary-700 hover:bg-gray-100 px-4 py-2 rounded-lg font-bold transition-all shadow-lg border-2 border-primary-200"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
-              <span className="font-semibold">View Website</span>
+              <span className="font-bold">View Website</span>
             </Link>
             
             <div className="hidden md:flex items-center gap-3 bg-white/10 px-4 py-2 rounded-lg">
-              <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center font-bold text-white text-lg">
-                {user.name.charAt(0).toUpperCase()}
+              <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center font-bold text-gray-800 text-lg border-2 border-accent-700">
+                {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
               </div>
               <div>
-                <p className="font-semibold">{user.name}</p>
-                <p className="text-xs text-green-100 capitalize">{user.role}</p>
+                <p className="font-bold text-white">{user?.name || user?.email || 'User'}</p>
+                <p className="text-xs text-accent-200 capitalize">{user?.role || 'admin'}</p>
               </div>
             </div>
             
             <button
               onClick={handleLogout}
-              className="bg-secondary-600 hover:bg-secondary-700 px-3 sm:px-4 py-2 rounded-lg font-semibold shadow-lg transition-all transform hover:scale-105 flex items-center gap-2"
+              className="bg-white/20 hover:bg-white/30 px-3 sm:px-4 py-2 rounded-lg font-semibold shadow-lg transition-all transform hover:scale-105 flex items-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -224,9 +224,9 @@ export default function AdminLayout({
           } lg:translate-x-0 fixed lg:static inset-y-0 left-0 w-64 bg-white shadow-2xl transition-transform duration-300 ease-in-out z-40 top-16 lg:top-0`}
         >
           <div className="p-4 h-full overflow-y-auto pt-6">
-            <div className="mb-6 p-4 bg-gradient-to-r from-primary/10 to-green-50 rounded-xl border-2 border-primary/20">
-              <p className="text-xs font-bold text-gray-600 mb-1">ADMIN PANEL</p>
-              <p className="text-lg font-bold text-primary">Full Access ✓</p>
+            <div className="mb-6 p-4 bg-gradient-to-br from-primary/5 to-accent/5 rounded-xl border-2 border-primary/20">
+              <p className="text-xs font-bold text-gray-700 mb-1">ADMIN PANEL</p>
+              <p className="text-lg font-bold text-primary-800">Full Access ✓</p>
             </div>
             
             <nav className="space-y-2">

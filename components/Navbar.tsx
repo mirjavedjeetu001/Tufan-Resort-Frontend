@@ -62,7 +62,7 @@ export default function Navbar() {
   const restWords = words.slice(1).join(' ');
 
   return (
-    <nav className="bg-gradient-to-r from-primary-600 via-primary-500 to-primary-600 text-white shadow-premium-lg fixed w-full z-50 backdrop-blur-sm">
+    <nav className="bg-gradient-to-r from-primary-700 to-primary-900 text-white shadow-lg fixed w-full z-50">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center py-4">
           <Link href="/" className="flex items-center gap-3 hover:scale-105 transition-transform duration-300">
@@ -74,7 +74,7 @@ export default function Navbar() {
               />
             )}
             <span className="text-3xl font-heading font-bold tracking-wide">
-              <span className="bg-gradient-to-r from-accent-400 to-accent-500 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-accent to-accent-400 bg-clip-text text-transparent">
                 {firstWord}
               </span>
               {restWords && <span className="text-white"> {restWords}</span>}

@@ -218,7 +218,7 @@ export default function TodaysSummaryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 p-8">
+    <div className="min-h-screen bg-white p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-[#006747] to-[#f4a425] rounded-2xl shadow-2xl p-8 mb-8 text-white">

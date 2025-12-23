@@ -81,7 +81,7 @@ export default function InstallPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-600 via-green-700 to-yellow-600 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-700 via-primary-800 to-primary-900 p-4">
       <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 max-w-2xl w-full">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">🏞️ Welcome to Tufan Resort CMS</h1>
@@ -95,8 +95,8 @@ export default function InstallPage() {
             </div>
           )}
 
-          <div className="bg-green-50 rounded-xl p-6 space-y-4">
-            <h2 className="text-xl font-bold text-green-800 mb-4">👤 Super Admin Account</h2>
+          <div className="bg-white/90 rounded-xl p-6 space-y-4">
+            <h2 className="text-xl font-bold text-primary-800 mb-4">👤 Super Admin Account</h2>
             
             <div>
               <label className="block text-gray-700 font-semibold mb-2">Full Name *</label>
@@ -178,7 +178,7 @@ export default function InstallPage() {
           <button
             type="submit"
             disabled={installing}
-            className="w-full bg-gradient-to-r from-green-600 to-yellow-500 text-white py-4 rounded-xl font-bold text-lg hover:from-green-700 hover:to-yellow-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-gradient-to-r from-primary-600 to-accent text-gray-900 py-4 rounded-xl font-bold text-lg hover:from-primary-700 hover:to-accent-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {installing ? '🔄 Installing...' : '🚀 Install & Create Super Admin'}
           </button>

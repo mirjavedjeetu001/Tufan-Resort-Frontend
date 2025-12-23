@@ -143,7 +143,7 @@ export default function RoomDetailPage() {
                     href="https://wa.me/880XXXXXXXXX"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="bg-green-500 text-white px-8 py-3 rounded-lg font-bold hover:bg-green-600 transition"
+                    className="bg-primary-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-primary-700 transition"
                   >
                     💬 WhatsApp
                   </a>

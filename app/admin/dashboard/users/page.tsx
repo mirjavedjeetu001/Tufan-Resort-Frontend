@@ -268,20 +268,20 @@ export default function UserManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-yellow-50 to-green-100 py-6 px-4">
+    <div className="min-h-screen bg-white py-6 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-xl shadow-lg p-5 mb-5">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-yellow-600 bg-clip-text text-transparent">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-700 to-accent bg-clip-text text-transparent">
                 👥 User Management
               </h1>
               <p className="text-gray-600 mt-1">Manage admin users and their permissions</p>
             </div>
             <button
               onClick={openCreateModal}
-              className="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-lg hover:from-green-700 hover:to-green-800 transition-all shadow-lg"
+              className="bg-gradient-to-r from-primary-600 to-primary-700 text-white px-6 py-3 rounded-lg hover:from-primary-700 hover:to-primary-800 transition-all shadow-lg"
             >
               ➕ Create User
             </button>
@@ -294,7 +294,7 @@ export default function UserManagement() {
             <div className="text-2xl font-bold">{users.length}</div>
             <div className="text-sm opacity-90">Total Users</div>
           </div>
-          <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-5 rounded-xl shadow-lg">
+          <div className="bg-gradient-to-br from-primary-600 to-primary-700 text-white p-5 rounded-xl shadow-lg">
             <div className="text-2xl font-bold">{users.filter(u => u.isActive).length}</div>
             <div className="text-sm opacity-90">Active Users</div>
           </div>
@@ -310,9 +310,9 @@ export default function UserManagement() {
 
         {/* Users Table */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-b border-green-100">
+          <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
               All Users
@@ -321,7 +321,7 @@ export default function UserManagement() {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gradient-to-r from-green-600 to-yellow-600 text-white">
+              <thead className="bg-gradient-to-r from-primary-700 to-accent text-gray-900">
                 <tr>
                   <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">User</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">Contact</th>

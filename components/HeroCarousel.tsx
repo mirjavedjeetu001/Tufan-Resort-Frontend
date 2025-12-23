@@ -35,11 +35,11 @@ export default function HeroCarousel() {
 
   if (slides.length === 0) {
     return (
-      <div className="relative h-[500px] bg-gradient-to-r from-primary to-blue-600 flex items-center justify-center">
+      <div className="relative h-[500px] bg-gradient-to-r from-primary-700 to-primary-900 flex items-center justify-center">
         <div className="text-center text-white">
           <h1 className="text-5xl font-heading font-bold mb-4">Welcome to Tufan Resort</h1>
           <p className="text-xl mb-8">Discover Luxury & Tranquility</p>
-          <a href="/rooms" className="bg-gradient-to-r from-[#f4a425] to-[#e09422] text-white px-8 py-3 rounded-lg font-bold hover:shadow-2xl hover:scale-105 transition-all shadow-lg border-2 border-white">
+          <a href="/rooms" className="bg-accent hover:bg-accent-600 text-gray-900 px-8 py-3 rounded-lg font-bold hover:shadow-2xl hover:scale-105 transition-all shadow-lg">
             Explore Rooms
           </a>
         </div>
@@ -66,7 +66,7 @@ export default function HeroCarousel() {
                   <h1 className="text-5xl font-heading font-bold mb-4">{slide.title}</h1>
                   {slide.subtitle && <p className="text-xl mb-8">{slide.subtitle}</p>}
                   {slide.buttonText && slide.buttonLink && (
-                    <a href={slide.buttonLink} className="bg-gradient-to-r from-[#f4a425] to-[#e09422] text-white px-8 py-3 rounded-lg font-bold hover:shadow-2xl hover:scale-105 transition-all inline-block shadow-lg border-2 border-white">
+                    <a href={slide.buttonLink} className="bg-accent hover:bg-accent-600 text-gray-900 px-8 py-3 rounded-lg font-bold hover:shadow-2xl hover:scale-105 transition-all inline-block shadow-lg">
                       {slide.buttonText}
                     </a>
                   )}

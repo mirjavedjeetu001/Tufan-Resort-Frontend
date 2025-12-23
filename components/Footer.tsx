@@ -76,7 +76,7 @@ export default function Footer() {
         <div className={`grid gap-8 ${footerSections.length === 0 ? 'md:grid-cols-1' : footerSections.length === 1 ? 'md:grid-cols-2' : footerSections.length === 2 ? 'md:grid-cols-3' : 'md:grid-cols-4'}`}>
           {/* Resort Info Column - Always First */}
           <div>
-            <h3 className="text-3xl font-heading font-bold mb-4 bg-gradient-to-r from-accent-400 to-accent-500 bg-clip-text text-transparent">
+            <h3 className="text-3xl font-heading font-bold mb-4 bg-gradient-to-r from-accent to-accent-400 bg-clip-text text-transparent">
               {resortInfo.resortName}
             </h3>
             <p className="text-gray-400 leading-relaxed">
@@ -88,7 +88,7 @@ export default function Footer() {
                   href={resortInfo.facebookUrl} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-primary-500 flex items-center justify-center transition-all duration-300 hover:scale-110"
+                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-primary-600 flex items-center justify-center transition-all duration-300 hover:scale-110"
                   title="Facebook"
                 >
                   <span>📘</span>

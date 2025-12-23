@@ -143,18 +143,18 @@ export default function AdminDashboard() {
   const hallAvailableCount = Math.max((allHalls.length || 0) - hallBookedCount, 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 p-6 md:p-8">
+    <div className="min-h-screen bg-white p-6 md:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="rounded-3xl bg-gradient-to-r from-primary-900 via-primary-700 to-emerald-600 text-white shadow-2xl p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4 border border-white/10">
+        <div className="rounded-3xl bg-gradient-to-r from-primary-700 to-primary-900 text-white shadow-xl p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4 border border-primary-200">
           <div>
-            <p className="text-xs md:text-sm uppercase tracking-[0.35em] text-white/70">Control Center</p>
-            <h1 className="text-3xl md:text-4xl font-heading font-bold mt-2 drop-shadow-md">Dashboard Overview</h1>
-            <p className="text-white/80 mt-2">Realtime snapshots for rooms, bookings, and halls.</p>
+            <p className="text-xs md:text-sm uppercase tracking-[0.35em] text-accent-200">Control Center</p>
+            <h1 className="text-3xl md:text-4xl font-heading font-bold mt-2 text-white">Dashboard Overview</h1>
+            <p className="text-white/90 mt-2">Realtime snapshots for rooms, bookings, and halls.</p>
           </div>
           <div className="flex gap-3 flex-wrap">
-            <span className="px-4 py-2 rounded-full bg-white/15 border border-white/20 text-sm font-semibold shadow-sm backdrop-blur">Live</span>
-            <span className="px-4 py-2 rounded-full bg-white/15 border border-white/20 text-sm font-semibold shadow-sm backdrop-blur">Secure</span>
-            <span className="px-4 py-2 rounded-full bg-white/15 border border-white/20 text-sm font-semibold shadow-sm backdrop-blur">Up to date</span>
+            <span className="px-4 py-2 rounded-full bg-green-500 text-white border-2 border-green-600 text-sm font-bold shadow-lg animate-pulse">🔴 Live</span>
+            <span className="px-4 py-2 rounded-full bg-white/20 border border-white/30 text-sm font-semibold backdrop-blur">Secure</span>
+            <span className="px-4 py-2 rounded-full bg-white/20 border border-white/30 text-sm font-semibold backdrop-blur">Up to date</span>
           </div>
         </div>
 
@@ -163,17 +163,17 @@ export default function AdminDashboard() {
           {[{
             label: 'Total Rooms',
             value: rooms.length,
-            accent: 'from-primary-500 via-primary-600 to-primary-700',
+            accent: 'from-primary-600 to-primary-700',
             icon: '🏠',
           }, {
             label: 'Total Bookings',
             value: metrics?.totalBookings || 0,
-            accent: 'from-accent-500 via-accent-600 to-accent-700',
+            accent: 'from-accent-500 to-accent-600',
             icon: '📝',
           }, {
             label: 'Confirmed',
             value: metrics?.confirmedBookings || 0,
-            accent: 'from-green-500 via-green-600 to-green-700',
+            accent: 'from-green-500 to-green-600',
             icon: '✅',
           }, {
             label: 'Total Revenue',
