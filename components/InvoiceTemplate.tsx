@@ -41,10 +41,15 @@ interface InvoiceProps {
     };
     createdAt: string;
   };
+  resortInfo?: {
+    resortName?: string;
+    defaultCheckInTime?: string;
+    defaultCheckOutTime?: string;
+  };
 }
 
 export const InvoiceTemplate = React.forwardRef<HTMLDivElement, InvoiceProps>(
-  ({ booking }, ref) => {
+  ({ booking, resortInfo }, ref) => {
     const calculateNights = () => {
       const checkIn = new Date(booking.checkInDate);
       const checkOut = new Date(booking.checkOutDate);
@@ -69,25 +74,32 @@ export const InvoiceTemplate = React.forwardRef<HTMLDivElement, InvoiceProps>(
     const grandTotal = afterDiscount + extraCharges;
 
     return (
-      <div ref={ref} className="bg-white p-8 max-w-4xl mx-auto">
+      <div ref={ref} className="bg-white p-6 max-w-4xl mx-auto text-sm">
+        {/* Top Developer Info */}
+        <div className="text-center mb-3 pb-2 border-b border-gray-200">
+          <p className="text-xs text-gray-600 mb-1">Thank you for choosing {resortInfo?.resortName || 'Tufan Resort'}!</p>
+          <p className="text-xs text-gray-700 font-semibold">Developed By Mir Javed Jeetu</p>
+          <p className="text-xs text-gray-600">Contact: 01811480222</p>
+        </div>
+
         {/* Header */}
-        <div className="text-center border-b-4 border-[#006747] pb-6 mb-6">
-          <h1 className="text-4xl font-bold text-[#006747] mb-2">Tufan Resort</h1>
-          <p className="text-gray-600 text-sm">🏞️ Lake View Resort & Convention Center</p>
-          <p className="text-gray-500 text-xs mt-2">
+        <div className="text-center border-b-2 border-[#006747] pb-3 mb-4">
+          <h1 className="text-3xl font-bold text-[#006747] mb-1">Tufan Resort</h1>
+          <p className="text-gray-600 text-xs">🏞️ Lake View Resort & Convention Center</p>
+          <p className="text-gray-500 text-xs mt-1">
             Phone: +880 1234 567890 | Email: info@tufanresort.com
           </p>
         </div>
 
         {/* Invoice Info */}
-        <div className="flex justify-between mb-6">
+        <div className="flex justify-between mb-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">BOOKING INVOICE</h2>
-            <p className="text-sm text-gray-600">Invoice #: BOOKING-{booking.id.toString().padStart(5, '0')}</p>
-            <p className="text-sm text-gray-600">Date: {new Date(booking.createdAt).toLocaleDateString('en-GB')}</p>
+            <h2 className="text-xl font-bold text-gray-800 mb-1">BOOKING INVOICE</h2>
+            <p className="text-xs text-gray-600">Invoice #: BOOKING-{booking.id.toString().padStart(5, '0')}</p>
+            <p className="text-xs text-gray-600">Date: {new Date(booking.createdAt).toLocaleDateString('en-GB')}</p>
           </div>
           <div className="text-right">
-            <div className={`inline-block px-4 py-2 rounded-lg font-bold text-sm ${
+            <div className={`inline-block px-3 py-1 rounded-lg font-bold text-xs ${
               booking.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
               booking.status === 'checked_in' ? 'bg-green-100 text-green-800' :
               booking.status === 'checked_out' ? 'bg-gray-100 text-gray-800' :
@@ -100,10 +112,10 @@ export const InvoiceTemplate = React.forwardRef<HTMLDivElement, InvoiceProps>(
         </div>
 
         {/* Customer Details */}
-        <div className="grid grid-cols-2 gap-6 mb-6">
-          <div className="border border-gray-300 rounded-lg p-4">
-            <h3 className="font-bold text-gray-800 mb-3 border-b pb-2">Guest Information</h3>
-            <div className="space-y-2 text-sm">
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="border border-gray-300 rounded p-3">
+            <h3 className="font-bold text-gray-800 mb-2 text-xs border-b pb-1">Guest Information</h3>
+            <div className="space-y-1 text-xs">
               <p><span className="font-semibold">Name:</span> {booking.customerName}</p>
               <p><span className="font-semibold">NID:</span> {booking.customerNid}</p>
               <p><span className="font-semibold">Phone:</span> {booking.customerPhone}</p>
@@ -117,9 +129,9 @@ export const InvoiceTemplate = React.forwardRef<HTMLDivElement, InvoiceProps>(
             </div>
           </div>
 
-          <div className="border border-gray-300 rounded-lg p-4">
-            <h3 className="font-bold text-gray-800 mb-3 border-b pb-2">Booking Details</h3>
-            <div className="space-y-2 text-sm">
+          <div className="border border-gray-300 rounded p-3">
+            <h3 className="font-bold text-gray-800 mb-2 text-xs border-b pb-1">Booking Details</h3>
+            <div className="space-y-1 text-xs">
               <p><span className="font-semibold">Room:</span> {booking.room?.roomNumber} - {booking.room?.name}</p>
               <p><span className="font-semibold">Type:</span> {booking.room?.type}</p>
               <p><span className="font-semibold">Check-In:</span> {new Date(booking.checkInDate).toLocaleDateString('en-GB')} {booking.checkInTime && `at ${booking.checkInTime}`}</p>
@@ -132,11 +144,11 @@ export const InvoiceTemplate = React.forwardRef<HTMLDivElement, InvoiceProps>(
 
         {/* Additional Guests */}
         {booking.additionalGuests && booking.additionalGuests.length > 0 && (
-          <div className="border border-gray-300 rounded-lg p-4 mb-6">
-            <h3 className="font-bold text-gray-800 mb-3 border-b pb-2">Additional Guest Members</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="border border-gray-300 rounded p-3 mb-4">
+            <h3 className="font-bold text-gray-800 mb-2 text-xs border-b pb-1">Additional Guest Members</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {booking.additionalGuests.map((guest, index) => (
-                <div key={index} className="bg-gray-50 p-3 rounded text-sm">
+                <div key={index} className="bg-gray-50 p-2 rounded text-xs">
                   <p className="font-semibold text-gray-800">{index + 2}. {guest.name}</p>
                   <p className="text-gray-600">NID: {guest.nid}</p>
                   <p className="text-gray-600">Phone: {guest.phone}</p>
@@ -147,70 +159,70 @@ export const InvoiceTemplate = React.forwardRef<HTMLDivElement, InvoiceProps>(
         )}
 
         {/* Billing Details */}
-        <div className="border border-gray-300 rounded-lg p-4 mb-6">
-          <h3 className="font-bold text-gray-800 mb-3 border-b pb-2">Billing Summary</h3>
-          <table className="w-full text-sm">
+        <div className="border border-gray-300 rounded p-3 mb-4">
+          <h3 className="font-bold text-gray-800 mb-2 text-xs border-b pb-1">Billing Summary</h3>
+          <table className="w-full text-xs">
             <thead className="bg-gray-50">
               <tr>
-                <th className="text-left p-2 border-b">Description</th>
-                <th className="text-center p-2 border-b">Quantity</th>
-                <th className="text-right p-2 border-b">Rate</th>
-                <th className="text-right p-2 border-b">Amount</th>
+                <th className="text-left p-1 border-b">Description</th>
+                <th className="text-center p-1 border-b">Quantity</th>
+                <th className="text-right p-1 border-b">Rate</th>
+                <th className="text-right p-1 border-b">Amount</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td className="p-2 border-b">Room Booking ({booking.room?.roomNumber} - {booking.room?.name})</td>
-                <td className="text-center p-2 border-b">{nights} night(s)</td>
-                <td className="text-right p-2 border-b">৳{booking.room?.pricePerNight.toLocaleString()}</td>
-                <td className="text-right p-2 border-b">৳{baseAmount.toLocaleString()}</td>
+                <td className="p-1 border-b">Room Booking ({booking.room?.roomNumber} - {booking.room?.name})</td>
+                <td className="text-center p-1 border-b">{nights} night(s)</td>
+                <td className="text-right p-1 border-b">৳{booking.room?.pricePerNight.toLocaleString()}</td>
+                <td className="text-right p-1 border-b">৳{baseAmount.toLocaleString()}</td>
               </tr>
               {discountAmount > 0 && (
                 <tr className="text-red-600">
-                  <td className="p-2 border-b">
+                  <td className="p-1 border-b">
                     Discount {booking.discountType === 'percentage' ? `(${booking.discountPercentage}%)` : '(Flat)'}
                   </td>
-                  <td className="text-center p-2 border-b">-</td>
-                  <td className="text-right p-2 border-b">-</td>
-                  <td className="text-right p-2 border-b">- ৳{discountAmount.toLocaleString()}</td>
+                  <td className="text-center p-1 border-b">-</td>
+                  <td className="text-right p-1 border-b">-</td>
+                  <td className="text-right p-1 border-b">- ৳{discountAmount.toLocaleString()}</td>
                 </tr>
               )}
               {booking.extraCharges && booking.extraCharges > 0 && (
                 <tr>
-                  <td className="p-2 border-b">
+                  <td className="p-1 border-b">
                     <div>Additional Charges</div>
                     {booking.extraChargesDescription && (
                       <div className="text-xs text-gray-600 italic">{booking.extraChargesDescription}</div>
                     )}
                   </td>
-                  <td className="text-center p-2 border-b">-</td>
-                  <td className="text-right p-2 border-b">-</td>
-                  <td className="text-right p-2 border-b">৳{booking.extraCharges.toLocaleString()}</td>
+                  <td className="text-center p-1 border-b">-</td>
+                  <td className="text-right p-1 border-b">-</td>
+                  <td className="text-right p-1 border-b">৳{booking.extraCharges.toLocaleString()}</td>
                 </tr>
               )}
               <tr className="font-bold bg-gray-50">
-                <td colSpan={3} className="p-2 text-right">Grand Total:</td>
-                <td className="text-right p-2">৳{grandTotal.toLocaleString()}</td>
+                <td colSpan={3} className="p-1 text-right">Grand Total:</td>
+                <td className="text-right p-1">৳{grandTotal.toLocaleString()}</td>
               </tr>
               <tr className="text-green-600 font-semibold">
-                <td colSpan={3} className="p-2 text-right">Advance Payment:</td>
-                <td className="text-right p-2">৳{booking.advancePayment.toLocaleString()}</td>
+                <td colSpan={3} className="p-1 text-right">Advance Payment:</td>
+                <td className="text-right p-1">৳{booking.advancePayment.toLocaleString()}</td>
               </tr>
-              <tr className="text-red-600 font-bold text-lg">
-                <td colSpan={3} className="p-2 text-right">Remaining Payment:</td>
-                <td className="text-right p-2">৳{booking.remainingPayment.toLocaleString()}</td>
+              <tr className="text-red-600 font-bold">
+                <td colSpan={3} className="p-1 text-right">Remaining Payment:</td>
+                <td className="text-right p-1">৳{booking.remainingPayment.toLocaleString()}</td>
               </tr>
             </tbody>
           </table>
         </div>
 
         {/* Payment Info */}
-        <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
-          <div className="border border-gray-300 rounded-lg p-3">
+        <div className="grid grid-cols-2 gap-3 mb-4 text-xs">
+          <div className="border border-gray-300 rounded p-2">
             <p className="font-semibold text-gray-700">Payment Method:</p>
             <p className="text-gray-900 uppercase">{booking.paymentMethod}</p>
           </div>
-          <div className="border border-gray-300 rounded-lg p-3">
+          <div className="border border-gray-300 rounded p-2">
             <p className="font-semibold text-gray-700">Payment Status:</p>
             <p className={`uppercase font-semibold ${
               booking.paymentStatus === 'paid' ? 'text-green-600' :
@@ -223,10 +235,10 @@ export const InvoiceTemplate = React.forwardRef<HTMLDivElement, InvoiceProps>(
         </div>
 
         {/* Terms & Conditions */}
-        <div className="border-t-2 border-gray-300 pt-4 mt-6">
-          <h4 className="font-bold text-gray-800 mb-2 text-sm">Terms & Conditions:</h4>
-          <ul className="text-xs text-gray-600 space-y-1 list-disc list-inside">
-            <li>Check-in time is from 2:00 PM and check-out time is before 11:00 AM</li>
+        <div className="border-t border-gray-300 pt-2 mt-3">
+          <h4 className="font-bold text-gray-800 mb-1 text-xs">Terms & Conditions:</h4>
+          <ul className="text-xs text-gray-600 space-y-0.5 list-disc list-inside">
+            <li>Check-in time is from {resortInfo?.defaultCheckInTime || '2:00 PM'} and check-out time is before {resortInfo?.defaultCheckOutTime || '11:00 AM'}</li>
             <li>Valid photo ID required during check-in</li>
             <li>Damage to resort property will be charged</li>
             <li>Cancellation must be done 48 hours before check-in date</li>
@@ -235,14 +247,10 @@ export const InvoiceTemplate = React.forwardRef<HTMLDivElement, InvoiceProps>(
         </div>
 
         {/* Footer */}
-        <div className="text-center mt-8 pt-4 border-t">
-          <p className="text-sm text-gray-600 mb-2">Thank you for choosing Tufan Resort!</p>
-          <p className="text-xs text-gray-500">This is a computer-generated invoice and does not require a signature.</p>
-          <p className="text-xs text-[#006747] font-semibold mt-2">🇧🇩 Proudly Made in Bangladesh</p>
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <p className="text-xs text-gray-700 font-semibold">Developed By Mir Javed Jeetu</p>
-            <p className="text-xs text-gray-600 mt-1">Contact: 01811480222</p>
-          </div>
+        <div className="text-center mt-3 pt-2 border-t">
+          <p className="text-xs text-gray-600 mb-1">Thank you for choosing {resortInfo?.resortName || 'Tufan Resort'}!</p>
+          <p className="text-xs text-gray-700 font-semibold">Developed By Mir Javed Jeetu</p>
+          <p className="text-xs text-gray-600">Contact: 01811480222</p>
         </div>
       </div>
     );

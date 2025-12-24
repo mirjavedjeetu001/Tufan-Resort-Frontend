@@ -16,13 +16,12 @@ interface AddonService {
 }
 
 const CATEGORIES = [
-  { value: 'DECORATION', label: '🎨 Decoration', color: 'pink' },
-  { value: 'AUDIO_VISUAL', label: '🎵 Audio Visual', color: 'purple' },
-  { value: 'PHOTOGRAPHY', label: '📸 Photography', color: 'blue' },
-  { value: 'CATERING', label: '🍽️ Catering', color: 'orange' },
-  { value: 'FURNITURE', label: '🪑 Furniture', color: 'brown' },
-  { value: 'TECHNICAL', label: '⚡ Technical', color: 'yellow' },
-  { value: 'OTHER', label: '📦 Other', color: 'gray' }
+  { value: 'decoration', label: '🎨 Decoration', color: 'pink' },
+  { value: 'sound_system', label: '🎵 Sound System', color: 'purple' },
+  { value: 'photography', label: '📸 Photography', color: 'blue' },
+  { value: 'catering', label: '🍽️ Catering', color: 'orange' },
+  { value: 'transport', label: '🚗 Transport', color: 'green' },
+  { value: 'other', label: '📦 Other', color: 'gray' }
 ];
 
 export default function AddonServicesPage() {
@@ -35,7 +34,7 @@ export default function AddonServicesPage() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    category: 'DECORATION',
+    category: 'decoration',
     price: '',
     isActive: true
   });
@@ -145,6 +144,19 @@ export default function AddonServicesPage() {
     return cat?.color || 'gray';
   };
 
+  const getCategoryColorHex = (category: string, dark = false) => {
+    const colorMap: any = {
+      'pink': dark ? '#db2777' : '#ec4899',
+      'purple': dark ? '#9333ea' : '#a855f7',
+      'blue': dark ? '#2563eb' : '#3b82f6',
+      'orange': dark ? '#ea580c' : '#f97316',
+      'green': dark ? '#16a34a' : '#22c55e',
+      'gray': dark ? '#4b5563' : '#6b7280'
+    };
+    const color = getCategoryColor(category);
+    return colorMap[color] || colorMap['gray'];
+  };
+
   const filteredServices = filterCategory === 'ALL' 
     ? services 
     : services.filter(s => s.category === filterCategory);
@@ -222,7 +234,9 @@ export default function AddonServicesPage() {
             className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 border border-gray-200"
           >
             {/* Service Header */}
-            <div className={`bg-gradient-to-r from-${getCategoryColor(service.category)}-500 to-${getCategoryColor(service.category)}-600 p-6 text-white`}>
+            <div className="p-6 text-white" style={{
+              background: `linear-gradient(to right, ${getCategoryColorHex(service.category)}, ${getCategoryColorHex(service.category, true)})`
+            }}>
               <div className="flex items-start justify-between mb-2">
                 <h3 className="text-xl font-bold flex-1">{service.name}</h3>
                 <span className="text-2xl">

@@ -3,27 +3,22 @@ import { useEffect, useState } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { conventionHallAPI } from '@/lib/api';
+import axios from 'axios';
 
 export default function ConventionHallPage() {
   const [halls, setHalls] = useState([]);
   const [filteredHalls, setFilteredHalls] = useState([]);
   const [eventDate, setEventDate] = useState('');
   const [selectedTimeSlot, setSelectedTimeSlot] = useState('all');
+  const [customStartTime, setCustomStartTime] = useState('');
+  const [customEndTime, setCustomEndTime] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState<{ [key: number]: number }>({});
+  const [resortInfo, setResortInfo] = useState<any>(null);
 
   useEffect(() => {
     fetchHalls();
+    fetchResortInfo();
   }, []);
-
-  useEffect(() => {
-    if (selectedTimeSlot === 'all') {
-      setFilteredHalls(halls);
-    } else {
-      setFilteredHalls(halls.filter((hall: any) => 
-        hall.timeSlots?.includes(selectedTimeSlot)
-      ));
-    }
-  }, [selectedTimeSlot, halls]);
 
   const fetchHalls = async () => {
     try {
@@ -35,10 +30,79 @@ export default function ConventionHallPage() {
     }
   };
 
-  const handleDateSearch = () => {
-    if (eventDate) {
-      // Filter available halls for selected date
-      fetchHalls();
+  const fetchResortInfo = async () => {
+    try {
+      const response = await axios.get('http://localhost:3001/resort-info');
+      setResortInfo(response.data);
+    } catch (error) {
+      console.error('Error fetching resort info:', error);
+    }
+  };
+
+  const handleDateSearch = async () => {
+    // Validate custom time slot
+    if (selectedTimeSlot === 'custom') {
+      if (!customStartTime || !customEndTime) {
+        alert('Please select start time and end time for custom slot / কাস্টম স্লটের জন্য শুরু এবং শেষ সময় নির্বাচন করুন');
+        return;
+      }
+      if (customStartTime >= customEndTime) {
+        alert('End time must be after start time / শেষ সময় শুরুর সময়ের পরে হতে হবে');
+        return;
+      }
+    }
+
+    // Check if date is selected
+    if (!eventDate) {
+      alert('Please select event date / ইভেন্টের তারিখ নির্বাচন করুন');
+      return;
+    }
+
+    // Check if time slot is selected
+    if (!selectedTimeSlot || selectedTimeSlot === 'all') {
+      // Show all halls if no specific time slot selected
+      setFilteredHalls(halls);
+      return;
+    }
+
+    try {
+      // Call the public API to get available halls based on actual bookings
+      const response = await axios.get('http://localhost:3001/convention-bookings/public/available-halls', {
+        params: {
+          date: eventDate,
+          timeSlot: selectedTimeSlot,
+        }
+      });
+
+      const { availableHalls, bookedHallIds } = response.data;
+
+      // Filter halls by both time slot support AND availability (not booked)
+      const filtered = halls.filter((hall: any) => {
+        // First check if hall is not booked for this date/time
+        const isNotBooked = !bookedHallIds.includes(hall.id);
+        
+        // Then check if hall supports the time slot
+        const supportsTimeSlot = !hall.timeSlots || hall.timeSlots.length === 0 || hall.timeSlots.includes(selectedTimeSlot);
+        
+        return isNotBooked && supportsTimeSlot;
+      });
+
+      setFilteredHalls(filtered);
+
+      // Show message if no halls available
+      if (filtered.length === 0) {
+        alert('No halls available for the selected date and time slot / নির্বাচিত তারিখ এবং সময় স্লটের জন্য কোন হল উপলব্ধ নেই');
+      }
+    } catch (error) {
+      console.error('Error checking availability:', error);
+      // If API fails, fall back to filtering by time slot only
+      const filtered = halls.filter((hall: any) => {
+        if (!hall.timeSlots || hall.timeSlots.length === 0) {
+          return true;
+        }
+        return hall.timeSlots.includes(selectedTimeSlot);
+      });
+      setFilteredHalls(filtered);
     }
   };
 
@@ -96,28 +160,85 @@ export default function ConventionHallPage() {
                   className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm sm:text-base"
                 >
                   <option value="all">All Slots / সব স্লট</option>
-                  <option value="morning">Morning / সকাল</option>
-                  <option value="afternoon">Afternoon / বিকাল</option>
-                  <option value="evening">Evening / সন্ধ্যা</option>
+                  <option value="morning">Morning / সকাল (9 AM - 3 PM)</option>
+                  <option value="night">Night / রাত (6 PM - 12 AM)</option>
+                  <option value="custom">Custom Time / কাস্টম সময়</option>
                   <option value="full-day">Full Day / সারাদিন</option>
                 </select>
               </div>
+              
+              {/* Custom Time Inputs - Show only when custom is selected */}
+              {selectedTimeSlot === 'custom' && (
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 bg-accent-50 p-3 sm:p-4 rounded-lg border-2 border-accent-200">
+                  <div>
+                    <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
+                      Start Time / শুরুর সময় <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={customStartTime}
+                      onChange={(e) => setCustomStartTime(e.target.value)}
+                      className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent text-sm sm:text-base"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
+                      End Time / শেষ সময় <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={customEndTime}
+                      onChange={(e) => setCustomEndTime(e.target.value)}
+                      className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent text-sm sm:text-base"
+                      required
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-xs text-gray-600 flex items-center gap-1">
+                      <span>ℹ️</span>
+                      <span>Select your preferred start and end time for the event / ইভেন্টের জন্য আপনার পছন্দের শুরু এবং শেষ সময় নির্বাচন করুন</span>
+                    </p>
+                  </div>
+                </div>
+              )}
+              
               <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <button
                   onClick={handleDateSearch}
-                  className="px-4 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-primary to-primary-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:shadow-lg transition-all"
+                  className="px-4 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-primary-600 to-primary-800 text-white rounded-lg text-sm sm:text-base font-semibold hover:shadow-xl hover:from-primary-700 hover:to-primary-900 transition-all"
                 >
                   🔍 <span className="hidden xs:inline">Search / অনুসন্ধান</span><span className="xs:hidden">Search</span>
                 </button>
                 <button
-                  onClick={() => { setEventDate(''); setSelectedTimeSlot('all'); fetchHalls(); }}
-                  className="px-4 sm:px-6 py-2.5 sm:py-3 bg-gray-200 text-gray-700 rounded-lg text-sm sm:text-base font-semibold hover:bg-gray-300 transition-all"
+                  onClick={() => { 
+                    setEventDate(''); 
+                    setSelectedTimeSlot('all');
+                    setCustomStartTime('');
+                    setCustomEndTime('');
+                    setFilteredHalls(halls);
+                  }}
+                  className="px-4 sm:px-6 py-2.5 sm:py-3 bg-white border-2 border-primary-600 text-primary-700 rounded-lg text-sm sm:text-base font-semibold hover:bg-primary-50 transition-all"
                 >
                   <span className="hidden xs:inline">Clear / মুছুন</span><span className="xs:hidden">Clear</span>
                 </button>
               </div>
             </div>
           </div>
+
+          {/* Availability Notice */}
+          {eventDate && (
+            <div className="max-w-4xl mx-auto mb-6 bg-accent-50 border-l-4 border-accent-500 p-4 rounded-lg">
+              <p className="text-sm text-gray-700">
+                <span className="font-semibold text-accent-700">📞 Note:</span> Showing halls that support the selected time slot. 
+                Please <span className="font-bold">call us</span> to confirm exact availability for {new Date(eventDate).toLocaleDateString('en-GB')} 
+                {selectedTimeSlot === 'custom' && customStartTime && customEndTime && (
+                  <span className="font-semibold"> ({customStartTime} - {customEndTime})</span>
+                )}
+                {selectedTimeSlot !== 'all' && selectedTimeSlot !== 'custom' && ` (${selectedTimeSlot} slot)`}.
+              </p>
+            </div>
+          )}
 
           {/* Convention Halls Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 lg:gap-8">
@@ -258,8 +379,8 @@ export default function ConventionHallPage() {
 
                   {/* Booking Button */}
                   <a 
-                    href={`tel:+880-XXX-XXXXXX`}
-                    className="block text-center bg-gradient-to-r from-primary to-primary-600 text-white py-3 rounded-lg hover:shadow-lg transition font-semibold"
+                    href={`tel:${resortInfo?.phone || '+8801811480222'}`}
+                    className="block text-center bg-gradient-to-r from-primary-600 to-primary-800 text-white py-3 rounded-lg hover:shadow-xl hover:from-primary-700 hover:to-primary-900 transition font-semibold"
                   >
                     📞 Call to Book / বুক করতে কল করুন
                   </a>
@@ -301,7 +422,7 @@ export default function ConventionHallPage() {
           </div>
 
           {/* Contact CTA */}
-          <div className="mt-16 bg-gradient-to-r from-primary to-primary-600 text-white p-8 rounded-lg text-center">
+          <div className="mt-16 bg-gradient-to-r from-primary-600 to-primary-800 text-white p-8 rounded-lg text-center shadow-xl">
             <h2 className="text-3xl font-heading font-bold mb-4">
               Ready to Book Your Event? / ইভেন্ট বুক করতে প্রস্তুত?
             </h2>
@@ -310,16 +431,16 @@ export default function ConventionHallPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a 
-                href="tel:+880-XXX-XXXXXX" 
-                className="bg-accent text-dark px-8 py-3 rounded-lg font-bold hover:bg-yellow-500 transition inline-block"
+                href={`tel:${resortInfo?.phone || '+8801811480222'}`}
+                className="bg-white text-primary-700 px-8 py-3 rounded-lg font-bold inline-block shadow-md"
               >
-                📞 Call Now: +880-XXX-XXXXXX
+                📞 Call Now: {resortInfo?.phone || '+8801811480222'}
               </a>
               <a 
-                href="https://wa.me/880XXXXXXXXX" 
+                href={`https://wa.me/${resortInfo?.phone?.replace(/[^0-9]/g, '') || '8801811480222'}`}
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="bg-green-500 text-white px-8 py-3 rounded-lg font-bold hover:bg-green-600 transition inline-block"
+                className="bg-green-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-green-700 transition inline-block shadow-md"
               >
                 💬 WhatsApp Us
               </a>

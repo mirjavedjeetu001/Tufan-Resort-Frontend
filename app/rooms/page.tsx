@@ -4,6 +4,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import Link from 'next/link';
 import { roomsAPI } from '@/lib/api';
+import axios from 'axios';
 
 export default function RoomsPage() {
   const [rooms, setRooms] = useState([]);
@@ -11,9 +12,11 @@ export default function RoomsPage() {
   const [filterType, setFilterType] = useState('all');
   const [checkInDate, setCheckInDate] = useState('');
   const [checkOutDate, setCheckOutDate] = useState('');
+  const [resortInfo, setResortInfo] = useState<any>(null);
 
   useEffect(() => {
     fetchRooms();
+    fetchResortInfo();
   }, []);
 
   useEffect(() => {
@@ -31,6 +34,15 @@ export default function RoomsPage() {
       setFilteredRooms(response.data);
     } catch (error) {
       console.error('Error fetching rooms:', error);
+    }
+  };
+
+  const fetchResortInfo = async () => {
+    try {
+      const response = await axios.get('http://localhost:3001/resort-info');
+      setResortInfo(response.data);
+    } catch (error) {
+      console.error('Error fetching resort info:', error);
     }
   };
 
@@ -76,13 +88,13 @@ export default function RoomsPage() {
               <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <button
                   onClick={handleDateSearch}
-                  className="px-4 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-primary to-primary-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:shadow-lg transition-all"
+                  className="px-4 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-primary-600 to-primary-800 text-white rounded-lg text-sm sm:text-base font-semibold hover:shadow-xl hover:from-primary-700 hover:to-primary-900 transition-all"
                 >
                   🔍 <span className="hidden xs:inline">Search / অনুসন্ধান</span><span className="xs:hidden">Search</span>
                 </button>
                 <button
                   onClick={() => { setCheckInDate(''); setCheckOutDate(''); fetchRooms(); }}
-                  className="px-4 sm:px-6 py-2.5 sm:py-3 bg-gray-200 text-gray-700 rounded-lg text-sm sm:text-base font-semibold hover:bg-gray-300 transition-all"
+                  className="px-4 sm:px-6 py-2.5 sm:py-3 bg-white border-2 border-primary-600 text-primary-700 rounded-lg text-sm sm:text-base font-semibold hover:bg-primary-50 transition-all"
                 >
                   <span className="hidden xs:inline">Clear / মুছুন</span><span className="xs:hidden">Clear</span>
                 </button>
@@ -151,7 +163,7 @@ export default function RoomsPage() {
 
                   <Link 
                     href={`/rooms/${room.id}`}
-                    className="block text-center bg-gradient-to-r from-primary to-primary-600 text-white py-2.5 sm:py-3 rounded-lg hover:shadow-lg transition text-sm sm:text-base font-semibold"
+                    className="block text-center bg-gradient-to-r from-primary-600 to-primary-800 text-white py-2.5 sm:py-3 rounded-lg hover:shadow-xl hover:from-primary-700 hover:to-primary-900 transition text-sm sm:text-base font-semibold"
                   >
                     View Details / বিস্তারিত দেখুন
                   </Link>
@@ -167,11 +179,11 @@ export default function RoomsPage() {
           )}
 
           {/* Contact CTA */}
-          <div className="mt-12 sm:mt-16 bg-primary text-white p-6 sm:p-8 rounded-lg text-center">
+          <div className="mt-12 sm:mt-16 bg-gradient-to-r from-primary-600 to-primary-800 text-white p-6 sm:p-8 rounded-lg text-center shadow-xl">
             <h2 className="text-2xl sm:text-3xl font-heading font-bold mb-3 sm:mb-4">Ready to Book?</h2>
             <p className="text-base sm:text-lg mb-4 sm:mb-6">Contact our hotline for reservations</p>
-            <a href="tel:+880-XXX-XXXXXX" className="bg-accent text-dark px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-bold hover:bg-yellow-500 transition inline-block">
-              📞 Call Now: +880-XXX-XXXXXX
+            <a href={`tel:${resortInfo?.phone || '+8801811480222'}`} className="bg-white text-primary-700 px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-bold inline-block shadow-md">
+              📞 Call Now: {resortInfo?.phone || '+8801811480222'}
             </a>
           </div>
         </div>

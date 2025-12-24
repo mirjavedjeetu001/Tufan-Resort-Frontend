@@ -68,16 +68,13 @@ export default function Navbar() {
           <Link href="/" className="flex items-center gap-3 hover:scale-105 transition-transform duration-300">
             {resortInfo.logoUrl && (
               <img 
-                src={resortInfo.logoUrl} 
+                src={`http://localhost:3001${resortInfo.logoUrl}`}
                 alt={displayName}
-                className="h-10 w-10 object-contain rounded-full bg-white/10 p-1"
+                className="h-12 w-12 object-contain rounded-lg bg-white/10 p-1.5 shadow-md"
               />
             )}
-            <span className="text-3xl font-heading font-bold tracking-wide">
-              <span className="bg-gradient-to-r from-accent to-accent-400 bg-clip-text text-transparent">
-                {firstWord}
-              </span>
-              {restWords && <span className="text-white"> {restWords}</span>}
+            <span className="text-3xl font-heading font-bold tracking-wide text-accent">
+              {displayName}
             </span>
           </Link>
           

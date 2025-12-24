@@ -148,6 +148,13 @@ export default function AdminLayout({
       path: '/admin/dashboard/users',
       permission: 'users.manage',
     },
+    { divider: true },
+    {
+      name: 'Activity Logs',
+      icon: '📋',
+      path: '/admin/dashboard/activity-logs',
+      permission: 'activity-logs.view',
+    },
   ];
 
   if (!user) {
@@ -274,8 +281,16 @@ export default function AdminLayout({
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 min-h-screen lg:ml-0">
-          <div className="p-0">{children}</div>
+        <main className="flex-1 lg:ml-0 flex flex-col min-h-screen">
+          <div className="flex-1 p-0">{children}</div>
+          
+          {/* Developer Footer */}
+          <div className="mt-auto border-t border-gray-200 pt-4 pb-4 px-6 bg-white">
+            <p className="text-center text-sm text-gray-600">
+              Developed by <span className="font-bold text-primary-700">Mir Javed Jeetu</span>
+              {' '} | Contact: <a href="tel:01811480222" className="text-primary-600 hover:text-primary-800 font-semibold">01811480222</a>
+            </p>
+          </div>
         </main>
       </div>
 

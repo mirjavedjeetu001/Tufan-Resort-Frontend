@@ -64,6 +64,7 @@ export default function BookingsManagement() {
   const { modalState, showModal, closeModal } = useModal();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [resortInfo, setResortInfo] = useState<any>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -91,7 +92,17 @@ export default function BookingsManagement() {
 
   useEffect(() => {
     fetchBookings();
+    fetchResortInfo();
   }, []);
+
+  const fetchResortInfo = async () => {
+    try {
+      const response = await api.get('/resort-info');
+      setResortInfo(response.data);
+    } catch (error) {
+      console.error('Error fetching resort info:', error);
+    }
+  };
 
   const fetchBookings = async () => {
     try {
@@ -1741,7 +1752,7 @@ export default function BookingsManagement() {
 
       {/* Hidden Invoice Component for Printing */}
       <div className="hidden">
-        {selectedBooking && <InvoiceTemplate ref={invoiceRef} booking={selectedBooking} />}
+        {selectedBooking && <InvoiceTemplate ref={invoiceRef} booking={selectedBooking} resortInfo={resortInfo} />}
       </div>
 
       <Modal

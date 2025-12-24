@@ -4,14 +4,17 @@ import { useParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { roomsAPI } from '@/lib/api';
+import axios from 'axios';
 
 export default function RoomDetailPage() {
   const params = useParams();
   const [room, setRoom] = useState<any>(null);
+  const [resortInfo, setResortInfo] = useState<any>(null);
 
   useEffect(() => {
     if (params.id) {
       fetchRoom();
+      fetchResortInfo();
     }
   }, [params.id]);
 
@@ -21,6 +24,15 @@ export default function RoomDetailPage() {
       setRoom(response.data);
     } catch (error) {
       console.error('Error fetching room:', error);
+    }
+  };
+
+  const fetchResortInfo = async () => {
+    try {
+      const response = await axios.get('http://localhost:3001/resort-info');
+      setResortInfo(response.data);
+    } catch (error) {
+      console.error('Error fetching resort info:', error);
     }
   };
 
@@ -134,16 +146,16 @@ export default function RoomDetailPage() {
                 </p>
                 <div className="flex gap-4">
                   <a 
-                    href="tel:+880-XXX-XXXXXX"
-                    className="bg-primary text-white px-8 py-3 rounded-lg font-bold hover:bg-teal-700 transition"
+                    href={`tel:${resortInfo?.phone || '+880-XXX-XXXXXX'}`}
+                    className="bg-primary-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-primary-700 transition shadow-md"
                   >
                     📞 Call to Book
                   </a>
                   <a 
-                    href="https://wa.me/880XXXXXXXXX"
+                    href={`https://wa.me/${resortInfo?.phone?.replace(/[^0-9]/g, '') || '880XXXXXXXXX'}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="bg-primary-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-primary-700 transition"
+                    className="bg-green-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-green-700 transition shadow-md"
                   >
                     💬 WhatsApp
                   </a>
